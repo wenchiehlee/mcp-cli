@@ -132,11 +132,11 @@ export async function listCommand(options: ListOptions): Promise<void> {
     tools: s.error
       ? [
           {
-          name: `<error: ${s.error}>`,
+            name: `<error: ${s.error}>`,
             description: undefined,
             inputSchema: {},
           },
-      ]
+        ]
       : s.tools,
   }));
 

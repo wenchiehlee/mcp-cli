@@ -7,6 +7,7 @@
  * - Errors always go to stderr
  */
 
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
   callTool,
   connectToServer,
@@ -17,6 +18,7 @@ import {
 } from '../client.js';
 import {
   type McpServersConfig,
+  type ServerConfig,
   getServerConfig,
   loadConfig,
 } from '../config.js';
@@ -130,7 +132,7 @@ export async function callCommand(options: CallOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
-  let serverConfig;
+  let serverConfig: ServerConfig;
   try {
     serverConfig = getServerConfig(config, serverName);
   } catch (error) {
@@ -146,8 +148,8 @@ export async function callCommand(options: CallOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
-  let client;
-  let close: () => Promise<void> = async () => { }; // Initialize to noop to prevent undefined access
+  let client: Client;
+  let close: () => Promise<void> = async () => {}; // Initialize to noop to prevent undefined access
 
   try {
     const connection = await connectToServer(serverName, serverConfig);

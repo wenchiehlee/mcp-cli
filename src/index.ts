@@ -192,7 +192,7 @@ async function main(): Promise<void> {
 
     case 'grep':
       await grepCommand({
-        pattern: args.pattern!,
+        pattern: args.pattern ?? '',
         withDescriptions: args.withDescriptions,
         json: args.json,
         configPath: args.configPath,
@@ -201,7 +201,7 @@ async function main(): Promise<void> {
 
     case 'info':
       await infoCommand({
-        target: args.target!,
+        target: args.target ?? '',
         json: args.json,
         withDescriptions: args.withDescriptions,
         configPath: args.configPath,
@@ -210,7 +210,7 @@ async function main(): Promise<void> {
 
     case 'call':
       await callCommand({
-        target: args.target!,
+        target: args.target ?? '',
         args: args.args,
         json: args.json,
         configPath: args.configPath,

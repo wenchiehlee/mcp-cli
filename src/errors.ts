@@ -113,9 +113,7 @@ export function serverNotFoundError(
     suggestion:
       available.length > 0
         ? `Use one of: ${available.map((s) => `mcp-cli ${s}`).join(', ')}`
-        : 'Add server to mcp_servers.json: { "mcpServers": { "' +
-          serverName +
-          '": { ... } } }',
+        : `Add server to mcp_servers.json: { "mcpServers": { "${serverName}": { ... } } }`,
   };
 }
 
@@ -224,7 +222,7 @@ export function invalidJsonArgsError(
 ): CliError {
   // Truncate long input
   const truncated =
-    input.length > 100 ? input.substring(0, 100) + '...' : input;
+    input.length > 100 ? `${input.substring(0, 100)}...` : input;
 
   return {
     code: ErrorCode.CLIENT_ERROR,

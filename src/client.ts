@@ -12,10 +12,10 @@ import {
   type StdioServerConfig,
   debug,
   getConcurrencyLimit,
-  getTimeoutMs,
-  isHttpServer,
   getMaxRetries,
   getRetryDelayMs,
+  getTimeoutMs,
+  isHttpServer,
 } from './config.js';
 import { VERSION } from './version.js';
 
@@ -97,8 +97,14 @@ export function isTransientError(error: Error): boolean {
   // HTTP transient errors - require status code at start or with HTTP context
   // Pattern: "502", "502 Bad Gateway", "HTTP 502", "status 502", "status code 502"
   if (/^(502|503|504|429)\b/.test(message)) return true;
-  if (/\b(http|status(\s+code)?)\s*(502|503|504|429)\b/i.test(message)) return true;
-  if (/\b(502|503|504|429)\s+(bad gateway|service unavailable|gateway timeout|too many requests)/i.test(message)) return true;
+  if (/\b(http|status(\s+code)?)\s*(502|503|504|429)\b/i.test(message))
+    return true;
+  if (
+    /\b(502|503|504|429)\s+(bad gateway|service unavailable|gateway timeout|too many requests)/i.test(
+      message,
+    )
+  )
+    return true;
 
   // Generic network terms - more specific patterns
   if (/network\s*(error|fail|unavailable|timeout)/i.test(message)) return true;

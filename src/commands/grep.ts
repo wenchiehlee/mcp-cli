@@ -72,7 +72,7 @@ export function globToRegex(pattern: string): RegExp {
       i += 1;
     } else if ('[.+^${}()|\\]'.includes(char)) {
       // Escape special regex chars
-      escaped += '\\' + char;
+      escaped += `\\${char}`;
       i += 1;
     } else {
       escaped += char;

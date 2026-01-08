@@ -2,9 +2,11 @@
  * Info command - Show server or tool details
  */
 
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { connectToServer, getTool, listTools, safeClose } from '../client.js';
 import {
   type McpServersConfig,
+  type ServerConfig,
   getServerConfig,
   loadConfig,
 } from '../config.js';
@@ -53,7 +55,7 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
 
   const { server: serverName, tool: toolName } = parseTarget(options.target);
 
-  let serverConfig;
+  let serverConfig: ServerConfig;
   try {
     serverConfig = getServerConfig(config, serverName);
   } catch (error) {
@@ -61,8 +63,8 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
     process.exit(ErrorCode.CLIENT_ERROR);
   }
 
-  let client;
-  let close: () => Promise<void> = async () => { };
+  let client: Client;
+  let close: () => Promise<void> = async () => {};
 
   try {
     const connection = await connectToServer(serverName, serverConfig);
