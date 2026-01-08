@@ -37,11 +37,14 @@ Create `mcp_servers.json` in your current directory or `~/.config/mcp/`:
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ]
     },
-    {
-      "deepwiki": {
-        "url": "https://mcp.deepwiki.com/mcp"
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/mcp"
     }
   }
 }
