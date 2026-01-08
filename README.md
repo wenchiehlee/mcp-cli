@@ -21,6 +21,13 @@ A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)]
 curl -fsSL https://raw.githubusercontent.com/philschmid/mcp-cli/main/install.sh | bash
 ```
 
+or 
+
+```bash
+# requires bun install
+bun install -g https://github.com/philschmid/mcp-cli
+```
+
 ### 2. Create a config file
 
 Create `mcp_servers.json` in your current directory or `~/.config/mcp/`:
@@ -456,9 +463,7 @@ The CLI includes **automatic retry with exponential backoff** for transient fail
 ### Setup
 
 ```bash
-git clone https://github.com/philschmid/mcp-cli
-cd mcp-cli
-bun install
+bun install https://github.com/philschmid/mcp-cli
 ```
 
 ### Commands
@@ -510,7 +515,7 @@ bun run dev filesystem
 To unlink when done:
 
 ```bash
-bun unlink mcp-cli
+bun unlink
 ```
 
 ### Releasing
