@@ -13,42 +13,15 @@ A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)]
 - 🔌 **Universal** - Supports both stdio and HTTP MCP servers
 - 💡 **Actionable Errors** - Structured error messages with recovery suggestions
 
-## Installation
+## Quick Start
 
-### Via Bun (recommended)
-
-```bash
-bun install -g mcp-cli
-```
-
-### Via npm
-
-```bash
-npm install -g mcp-cli
-```
-
-### From Source
-
-```bash
-git clone https://github.com/philschmid/mcp-cli
-cd mcp-cli
-bun install
-bun run build
-```
-
-### Pre-built Binaries
-
-Install the latest release with the install script (auto-detects OS/architecture):
+### 1. Installation
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/philschmid/mcp-cli/main/install.sh | bash
 ```
 
-Or download manually from the [releases page](https://github.com/philschmid/mcp-cli/releases).
-
-## Quick Start
-
-### 1. Create a config file
+### 2. Create a config file
 
 Create `mcp_servers.json` in your current directory or `~/.config/mcp/`:
 
@@ -59,18 +32,15 @@ Create `mcp_servers.json` in your current directory or `~/.config/mcp/`:
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
     },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-      }
+    {
+      "deepwiki": {
+        "url": "https://mcp.deepwiki.com/mcp"
     }
   }
 }
 ```
 
-### 2. Discover available tools
+### 3. Discover available tools
 
 ```bash
 # List all servers and tools
@@ -80,7 +50,7 @@ mcp-cli
 mcp-cli -d
 ```
 
-### 3. Call a tool
+### 4. Call a tool
 
 ```bash
 # View tool schema first
@@ -100,7 +70,8 @@ mcp-cli [options] <server>/<tool>           Show tool schema (JSON input schema)
 mcp-cli [options] <server>/<tool> <json>    Call tool with arguments
 ```
 
-**Tip:** Add `-d` to any command to include descriptions.
+> [!TIP]
+> Add `-d` to any command to include descriptions.
 
 ### Options
 
