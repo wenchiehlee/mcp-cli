@@ -10,9 +10,17 @@ import {
   type HttpServerConfig,
   type ServerConfig,
   type StdioServerConfig,
+  debug,
+  getConcurrencyLimit,
+  getTimeoutMs,
   isHttpServer,
+  getMaxRetries,
+  getRetryDelayMs,
 } from './config.js';
 import { VERSION } from './version.js';
+
+// Re-export config utilities for convenience
+export { debug, getTimeoutMs, getConcurrencyLimit };
 
 export interface ConnectedClient {
   client: Client;
@@ -38,37 +46,64 @@ interface RetryConfig {
   maxRetries: number;
   baseDelayMs: number;
   maxDelayMs: number;
+  totalBudgetMs: number;
 }
 
-const DEFAULT_RETRY_CONFIG: RetryConfig = {
-  maxRetries: 3,
-  baseDelayMs: 1000,
-  maxDelayMs: 10000,
-};
+/**
+ * Get retry config respecting MCP_TIMEOUT budget
+ */
+function getRetryConfig(): RetryConfig {
+  const totalBudgetMs = getTimeoutMs();
+  const maxRetries = getMaxRetries();
+  const baseDelayMs = getRetryDelayMs();
+
+  // Reserve at least 5s for the final attempt
+  const retryBudgetMs = Math.max(0, totalBudgetMs - 5000);
+
+  return {
+    maxRetries,
+    baseDelayMs,
+    maxDelayMs: Math.min(10000, retryBudgetMs / 2),
+    totalBudgetMs,
+  };
+}
 
 /**
  * Check if an error is transient and worth retrying
+ * Uses error codes when available, falls back to message matching
  */
-function isTransientError(error: Error): boolean {
-  const message = error.message.toLowerCase();
+export function isTransientError(error: Error): boolean {
+  // Check error code first (more reliable than message matching)
+  const nodeError = error as NodeJS.ErrnoException;
+  if (nodeError.code) {
+    const transientCodes = [
+      'ECONNREFUSED',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'ENOTFOUND',
+      'EPIPE',
+      'ENETUNREACH',
+      'EHOSTUNREACH',
+      'EAI_AGAIN',
+    ];
+    if (transientCodes.includes(nodeError.code)) {
+      return true;
+    }
+  }
 
-  // Network errors
-  if (message.includes('econnrefused')) return true;
-  if (message.includes('econnreset')) return true;
-  if (message.includes('etimedout')) return true;
-  if (message.includes('enotfound')) return true;
-  if (message.includes('epipe')) return true;
-  if (message.includes('network')) return true;
+  // Fallback to message matching for errors without codes
+  const message = error.message;
 
-  // HTTP transient errors
-  if (message.includes('502')) return true; // Bad Gateway
-  if (message.includes('503')) return true; // Service Unavailable
-  if (message.includes('504')) return true; // Gateway Timeout
-  if (message.includes('429')) return true; // Too Many Requests
+  // HTTP transient errors - require status code at start or with HTTP context
+  // Pattern: "502", "502 Bad Gateway", "HTTP 502", "status 502", "status code 502"
+  if (/^(502|503|504|429)\b/.test(message)) return true;
+  if (/\b(http|status(\s+code)?)\s*(502|503|504|429)\b/i.test(message)) return true;
+  if (/\b(502|503|504|429)\s+(bad gateway|service unavailable|gateway timeout|too many requests)/i.test(message)) return true;
 
-  // Connection issues
-  if (message.includes('connection')) return true;
-  if (message.includes('timeout')) return true;
+  // Generic network terms - more specific patterns
+  if (/network\s*(error|fail|unavailable|timeout)/i.test(message)) return true;
+  if (/connection\s*(reset|refused|timeout)/i.test(message)) return true;
+  if (/\btimeout\b/i.test(message)) return true;
 
   return false;
 }
@@ -77,7 +112,7 @@ function isTransientError(error: Error): boolean {
  * Calculate delay with exponential backoff and jitter
  */
 function calculateDelay(attempt: number, config: RetryConfig): number {
-  const exponentialDelay = config.baseDelayMs * Math.pow(2, attempt);
+  const exponentialDelay = config.baseDelayMs * 2 ** attempt;
   const cappedDelay = Math.min(exponentialDelay, config.maxDelayMs);
   // Add jitter (±25%)
   const jitter = cappedDelay * 0.25 * (Math.random() * 2 - 1);
@@ -88,32 +123,48 @@ function calculateDelay(attempt: number, config: RetryConfig): number {
  * Sleep for specified milliseconds
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * Execute a function with retry logic for transient failures
+ * Respects overall timeout budget from MCP_TIMEOUT
  */
 async function withRetry<T>(
   fn: () => Promise<T>,
   operationName: string,
-  config: RetryConfig = DEFAULT_RETRY_CONFIG
+  config: RetryConfig = getRetryConfig(),
 ): Promise<T> {
   let lastError: Error | undefined;
+  const startTime = Date.now();
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    // Check if we've exceeded the total timeout budget
+    const elapsed = Date.now() - startTime;
+    if (elapsed >= config.totalBudgetMs) {
+      debug(`${operationName}: timeout budget exhausted after ${elapsed}ms`);
+      break;
+    }
+
     try {
       return await fn();
     } catch (error) {
       lastError = error as Error;
 
-      if (attempt < config.maxRetries && isTransientError(lastError)) {
-        const delay = calculateDelay(attempt, config);
-        if (process.env.MCP_DEBUG) {
-          console.error(
-            `[retry] ${operationName} failed (attempt ${attempt + 1}/${config.maxRetries + 1}): ${lastError.message}. Retrying in ${delay}ms...`
-          );
-        }
+      const remainingBudget = config.totalBudgetMs - (Date.now() - startTime);
+      const shouldRetry =
+        attempt < config.maxRetries &&
+        isTransientError(lastError) &&
+        remainingBudget > 1000; // At least 1s remaining
+
+      if (shouldRetry) {
+        const delay = Math.min(
+          calculateDelay(attempt, config),
+          remainingBudget - 1000,
+        );
+        debug(
+          `${operationName} failed (attempt ${attempt + 1}/${config.maxRetries + 1}): ${lastError.message}. Retrying in ${delay}ms...`,
+        );
         await sleep(delay);
       } else {
         throw lastError;
@@ -125,50 +176,58 @@ async function withRetry<T>(
 }
 
 /**
+ * Safely close a connection, logging but not throwing on error
+ */
+export async function safeClose(close: () => Promise<void>): Promise<void> {
+  try {
+    await close();
+  } catch (err) {
+    debug(`Failed to close connection: ${(err as Error).message}`);
+  }
+}
+
+/**
  * Connect to an MCP server with retry logic
  */
 export async function connectToServer(
   serverName: string,
-  config: ServerConfig
+  config: ServerConfig,
 ): Promise<ConnectedClient> {
-  return withRetry(
-    async () => {
-      const client = new Client(
-        {
-          name: 'mcp-cli',
-          version: VERSION,
-        },
-        {
-          capabilities: {},
-        }
-      );
+  return withRetry(async () => {
+    const client = new Client(
+      {
+        name: 'mcp-cli',
+        version: VERSION,
+      },
+      {
+        capabilities: {},
+      },
+    );
 
-      let transport: StdioClientTransport | StreamableHTTPClientTransport;
+    let transport: StdioClientTransport | StreamableHTTPClientTransport;
 
-      if (isHttpServer(config)) {
-        transport = createHttpTransport(config);
-      } else {
-        transport = createStdioTransport(config);
-      }
+    if (isHttpServer(config)) {
+      transport = createHttpTransport(config);
+    } else {
+      transport = createStdioTransport(config);
+    }
 
-      await client.connect(transport);
+    await client.connect(transport);
 
-      return {
-        client,
-        close: async () => {
-          await client.close();
-        },
-      };
-    },
-    `connect to ${serverName}`
-  );
+    return {
+      client,
+      close: async () => {
+        await client.close();
+      },
+    };
+  }, `connect to ${serverName}`);
 }
 
 /**
  * Create HTTP transport for remote servers
  */
 function createHttpTransport(
-  config: HttpServerConfig
+  config: HttpServerConfig,
 ): StreamableHTTPClientTransport {
   const url = new URL(config.url);
 
@@ -206,17 +265,14 @@ function createStdioTransport(config: StdioServerConfig): StdioClientTransport {
  * List all tools from a connected client with retry logic
  */
 export async function listTools(client: Client): Promise<ToolInfo[]> {
-  return withRetry(
-    async () => {
-      const result = await client.listTools();
-      return result.tools.map((tool: Tool) => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema as Record<string, unknown>,
-      }));
-    },
-    'list tools'
-  );
+  return withRetry(async () => {
+    const result = await client.listTools();
+    return result.tools.map((tool: Tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema as Record<string, unknown>,
+    }));
+  }, 'list tools');
 }
 
 /**
@@ -224,7 +280,7 @@ export async function listTools(client: Client): Promise<ToolInfo[]> {
  */
 export async function getTool(
   client: Client,
-  toolName: string
+  toolName: string,
 ): Promise<ToolInfo | undefined> {
   const tools = await listTools(client);
   return tools.find((t) => t.name === toolName);
@@ -236,16 +292,13 @@ export async function getTool(
 export async function callTool(
   client: Client,
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
 ): Promise<unknown> {
-  return withRetry(
-    async () => {
-      const result = await client.callTool({
-        name: toolName,
-        arguments: args,
-      });
-      return result;
-    },
-    `call tool ${toolName}`
-  );
+  return withRetry(async () => {
+    const result = await client.callTool({
+      name: toolName,
+      arguments: args,
+    });
+    return result;
+  }, `call tool ${toolName}`);
 }

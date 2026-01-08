@@ -2,15 +2,22 @@
  * List command - List all servers and their tools
  */
 
-import { connectToServer, listTools, type ToolInfo } from '../client.js';
 import {
-  loadConfig,
+  type ToolInfo,
+  connectToServer,
+  debug,
+  getConcurrencyLimit,
+  listTools,
+  safeClose,
+} from '../client.js';
+import {
+  type McpServersConfig,
   getServerConfig,
   listServerNames,
-  type McpServersConfig,
+  loadConfig,
 } from '../config.js';
-import { formatServerList, formatJson } from '../output.js';
-import { ErrorCode, formatCliError, serverConnectionError } from '../errors.js';
+import { ErrorCode } from '../errors.js';
+import { formatJson, formatServerList } from '../output.js';
 
 export interface ListOptions {
   withDescriptions: boolean;
@@ -21,6 +28,65 @@ export interface ListOptions {
 interface ServerWithTools {
   name: string;
   tools: ToolInfo[];
+  error?: string;
+}
+
+/**
+ * Process items with limited concurrency, preserving order
+ * Uses a worker pool pattern where each worker grabs the next item from a shared index
+ */
+async function processWithConcurrency<T, R>(
+  items: T[],
+  processor: (item: T, index: number) => Promise<R>,
+  maxConcurrency: number,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let currentIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (currentIndex < items.length) {
+      const index = currentIndex++;
+      results[index] = await processor(items[index], index);
+    }
+  }
+
+  // Start workers up to concurrency limit
+  const workers = Array.from(
+    { length: Math.min(maxConcurrency, items.length) },
+    () => worker(),
+  );
+
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Fetch tools from a single server
+ */
+async function fetchServerTools(
+  serverName: string,
+  config: McpServersConfig,
+): Promise<ServerWithTools> {
+  try {
+    const serverConfig = getServerConfig(config, serverName);
+    const { client, close } = await connectToServer(serverName, serverConfig);
+
+    try {
+      const tools = await listTools(client);
+      debug(`${serverName}: loaded ${tools.length} tools`);
+      return { name: serverName, tools };
+    } finally {
+      await safeClose(close);
+    }
+  } catch (error) {
+    const errorMsg = (error as Error).message;
+    debug(`${serverName}: connection failed - ${errorMsg}`);
+    return {
+      name: serverName,
+      tools: [],
+      error: errorMsg,
+    };
+  }
 }
 
 /**
@@ -37,33 +103,42 @@ export async function listCommand(options: ListOptions): Promise<void> {
   }
 
   const serverNames = listServerNames(config);
-  const servers: ServerWithTools[] = [];
 
-  for (const serverName of serverNames) {
-    try {
-      const serverConfig = getServerConfig(config, serverName);
-      const { client, close } = await connectToServer(serverName, serverConfig);
+  if (serverNames.length === 0) {
+    console.error(
+      'Warning: No servers configured. Add servers to mcp_servers.json',
+    );
+    return;
+  }
 
-      try {
-        const tools = await listTools(client);
-        servers.push({ name: serverName, tools });
-      } finally {
-        await close();
-      }
-    } catch (error) {
-      // Include server with error message as a tool
-      servers.push({
-        name: serverName,
-        tools: [
+  const concurrencyLimit = getConcurrencyLimit();
+  debug(
+    `Processing ${serverNames.length} servers with concurrency ${concurrencyLimit}`,
+  );
+
+  // Process servers in parallel with concurrency limit
+  const servers = await processWithConcurrency(
+    serverNames,
+    (name) => fetchServerTools(name, config),
+    concurrencyLimit,
+  );
+
+  // Sort by name to ensure consistent output order
+  servers.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Convert errors to tool-like display for human output
+  const displayServers = servers.map((s) => ({
+    name: s.name,
+    tools: s.error
+      ? [
           {
-            name: `<error: ${(error as Error).message}>`,
+          name: `<error: ${s.error}>`,
             description: undefined,
             inputSchema: {},
           },
-        ],
-      });
-    }
-  }
+      ]
+      : s.tools,
+  }));
 
   if (options.json) {
     const jsonOutput = servers.map((s) => ({
@@ -73,9 +148,10 @@ export async function listCommand(options: ListOptions): Promise<void> {
         description: t.description,
         inputSchema: t.inputSchema,
       })),
+      error: s.error,
     }));
     console.log(formatJson(jsonOutput));
   } else {
-    console.log(formatServerList(servers, options.withDescriptions));
+    console.log(formatServerList(displayServers, options.withDescriptions));
   }
 }

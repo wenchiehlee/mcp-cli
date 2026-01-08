@@ -1,6 +1,6 @@
 ---
 name: mcp-cli
-description: Interface for MCP (Model Context Protocol) servers via CLI. Use when you need to interact with external tools, APIs, or data sources through MCP servers. Triggers include: calling MCP tools, using GitHub/filesystem/database integrations, executing external API calls, tool discovery, or when asked to use MCP capabilities.
+description: Interface for MCP (Model Context Protocol) servers via CLI. Use when you need to interact with external tools, APIs, or data sources through MCP servers.
 ---
 
 # MCP-CLI
@@ -49,7 +49,16 @@ mcp-cli grep "*file*"
 
 # JSON output for parsing
 mcp-cli filesystem/read_file '{"path": "./README.md"}' --json
+
+# Complex JSON with quotes (use heredoc or stdin)
+mcp-cli server/tool <<EOF
+{"content": "Text with 'quotes' inside"}
+EOF
+
+# Or pipe from a file/command
+cat args.json | mcp-cli server/tool
 ```
+
 
 ## Options
 

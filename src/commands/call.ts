@@ -1,24 +1,35 @@
 /**
  * Call command - Execute a tool with arguments
- * 
+ *
  * Output behavior:
  * - Default: Raw text content to stdout (CLI-friendly)
  * - With --json: Full JSON response to stdout
  * - Errors always go to stderr
  */
 
-import { connectToServer, callTool, listTools } from '../client.js';
-import { loadConfig, getServerConfig, type McpServersConfig } from '../config.js';
-import { formatToolResult, formatJson } from '../output.js';
 import {
+  callTool,
+  connectToServer,
+  debug,
+  getTimeoutMs,
+  listTools,
+  safeClose,
+} from '../client.js';
+import {
+  type McpServersConfig,
+  getServerConfig,
+  loadConfig,
+} from '../config.js';
+import {
+  ErrorCode,
   formatCliError,
-  invalidTargetError,
   invalidJsonArgsError,
+  invalidTargetError,
   serverConnectionError,
   toolExecutionError,
   toolNotFoundError,
-  ErrorCode,
 } from '../errors.js';
+import { formatJson, formatToolResult } from '../output.js';
 
 export interface CallOptions {
   target: string; // "server/tool"
@@ -44,18 +55,38 @@ function parseTarget(target: string): { server: string; tool: string } {
 /**
  * Parse JSON arguments from string or stdin
  */
-async function parseArgs(argsString?: string): Promise<Record<string, unknown>> {
+async function parseArgs(
+  argsString?: string,
+): Promise<Record<string, unknown>> {
   let jsonString: string;
 
   if (argsString) {
     jsonString = argsString;
   } else if (!process.stdin.isTTY) {
-    // Read from stdin
+    // Read from stdin with timeout - use timer cleanup to prevent memory leak
+    const timeoutMs = getTimeoutMs();
     const chunks: Buffer[] = [];
-    for await (const chunk of process.stdin) {
-      chunks.push(chunk);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const readPromise = (async () => {
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk);
+      }
+      return Buffer.concat(chunks).toString('utf-8').trim();
+    })();
+
+    const timeoutPromise = new Promise<string>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error(`stdin read timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+    });
+
+    try {
+      jsonString = await Promise.race([readPromise, timeoutPromise]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
     }
-    jsonString = Buffer.concat(chunks).toString('utf-8').trim();
   } else {
     // No arguments provided
     return {};
@@ -68,7 +99,9 @@ async function parseArgs(argsString?: string): Promise<Record<string, unknown>> 
   try {
     return JSON.parse(jsonString);
   } catch (e) {
-    throw new Error(formatCliError(invalidJsonArgsError(jsonString, (e as Error).message)));
+    throw new Error(
+      formatCliError(invalidJsonArgsError(jsonString, (e as Error).message)),
+    );
   }
 }
 
@@ -114,14 +147,18 @@ export async function callCommand(options: CallOptions): Promise<void> {
   }
 
   let client;
-  let close: () => Promise<void>;
+  let close: () => Promise<void> = async () => { }; // Initialize to noop to prevent undefined access
 
   try {
     const connection = await connectToServer(serverName, serverConfig);
     client = connection.client;
     close = connection.close;
   } catch (error) {
-    console.error(formatCliError(serverConnectionError(serverName, (error as Error).message)));
+    console.error(
+      formatCliError(
+        serverConnectionError(serverName, (error as Error).message),
+      ),
+    );
     process.exit(ErrorCode.NETWORK_ERROR);
   }
 
@@ -140,7 +177,7 @@ export async function callCommand(options: CallOptions): Promise<void> {
     let availableTools: string[] | undefined;
     try {
       const tools = await listTools(client);
-      availableTools = tools.map(t => t.name);
+      availableTools = tools.map((t) => t.name);
     } catch {
       // Ignore - we'll show error without tool list
     }
@@ -148,12 +185,16 @@ export async function callCommand(options: CallOptions): Promise<void> {
     const errMsg = (error as Error).message;
     // Check if it's a "tool not found" type error
     if (errMsg.includes('not found') || errMsg.includes('unknown tool')) {
-      console.error(formatCliError(toolNotFoundError(toolName, serverName, availableTools)));
+      console.error(
+        formatCliError(toolNotFoundError(toolName, serverName, availableTools)),
+      );
     } else {
-      console.error(formatCliError(toolExecutionError(toolName, serverName, errMsg)));
+      console.error(
+        formatCliError(toolExecutionError(toolName, serverName, errMsg)),
+      );
     }
     process.exit(ErrorCode.SERVER_ERROR);
   } finally {
-    await close();
+    await safeClose(close);
   }
 }

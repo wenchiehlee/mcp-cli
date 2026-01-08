@@ -65,18 +65,24 @@ export function configSearchError(): CliError {
     code: ErrorCode.CLIENT_ERROR,
     type: 'CONFIG_NOT_FOUND',
     message: 'No mcp_servers.json found in search paths',
-    details: 'Searched: ./mcp_servers.json, ~/.mcp_servers.json, ~/.config/mcp/mcp_servers.json',
-    suggestion: 'Create mcp_servers.json in current directory or use -c/--config to specify path',
+    details:
+      'Searched: ./mcp_servers.json, ~/.mcp_servers.json, ~/.config/mcp/mcp_servers.json',
+    suggestion:
+      'Create mcp_servers.json in current directory or use -c/--config to specify path',
   };
 }
 
-export function configInvalidJsonError(path: string, parseError?: string): CliError {
+export function configInvalidJsonError(
+  path: string,
+  parseError?: string,
+): CliError {
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'CONFIG_INVALID_JSON',
     message: `Invalid JSON in config file: ${path}`,
     details: parseError,
-    suggestion: 'Check for syntax errors: missing commas, unquoted keys, trailing commas',
+    suggestion:
+      'Check for syntax errors: missing commas, unquoted keys, trailing commas',
   };
 }
 
@@ -94,29 +100,42 @@ export function configMissingFieldError(path: string): CliError {
 // Server Errors
 // ============================================================================
 
-export function serverNotFoundError(serverName: string, available: string[]): CliError {
+export function serverNotFoundError(
+  serverName: string,
+  available: string[],
+): CliError {
   const availableList = available.length > 0 ? available.join(', ') : '(none)';
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'SERVER_NOT_FOUND',
     message: `Server "${serverName}" not found in config`,
     details: `Available servers: ${availableList}`,
-    suggestion: available.length > 0
-      ? `Use one of: ${available.map(s => `mcp-cli ${s}`).join(', ')}`
-      : 'Add server to mcp_servers.json: { "mcpServers": { "' + serverName + '": { ... } } }',
+    suggestion:
+      available.length > 0
+        ? `Use one of: ${available.map((s) => `mcp-cli ${s}`).join(', ')}`
+        : 'Add server to mcp_servers.json: { "mcpServers": { "' +
+          serverName +
+          '": { ... } } }',
   };
 }
 
-export function serverConnectionError(serverName: string, cause: string): CliError {
+export function serverConnectionError(
+  serverName: string,
+  cause: string,
+): CliError {
   // Detect common error patterns
-  let suggestion = 'Check server configuration and ensure the server process can start';
+  let suggestion =
+    'Check server configuration and ensure the server process can start';
 
   if (cause.includes('ENOENT') || cause.includes('not found')) {
-    suggestion = 'Command not found. Install the MCP server: npx -y @modelcontextprotocol/server-<name>';
+    suggestion =
+      'Command not found. Install the MCP server: npx -y @modelcontextprotocol/server-<name>';
   } else if (cause.includes('ECONNREFUSED')) {
-    suggestion = 'Server refused connection. Check if the server is running and URL is correct';
+    suggestion =
+      'Server refused connection. Check if the server is running and URL is correct';
   } else if (cause.includes('ETIMEDOUT') || cause.includes('timeout')) {
-    suggestion = 'Connection timed out. Check network connectivity and server availability';
+    suggestion =
+      'Connection timed out. Check network connectivity and server availability';
   } else if (cause.includes('401') || cause.includes('Unauthorized')) {
     suggestion = 'Authentication required. Add Authorization header to config';
   } else if (cause.includes('403') || cause.includes('Forbidden')) {
@@ -136,20 +155,33 @@ export function serverConnectionError(serverName: string, cause: string): CliErr
 // Tool Errors
 // ============================================================================
 
-export function toolNotFoundError(toolName: string, serverName: string, availableTools?: string[]): CliError {
+export function toolNotFoundError(
+  toolName: string,
+  serverName: string,
+  availableTools?: string[],
+): CliError {
   const toolList = availableTools?.slice(0, 5).join(', ') || '';
-  const moreCount = availableTools && availableTools.length > 5 ? ` (+${availableTools.length - 5} more)` : '';
+  const moreCount =
+    availableTools && availableTools.length > 5
+      ? ` (+${availableTools.length - 5} more)`
+      : '';
 
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'TOOL_NOT_FOUND',
     message: `Tool "${toolName}" not found in server "${serverName}"`,
-    details: availableTools ? `Available tools: ${toolList}${moreCount}` : undefined,
+    details: availableTools
+      ? `Available tools: ${toolList}${moreCount}`
+      : undefined,
     suggestion: `Run 'mcp-cli ${serverName}' to see all available tools`,
   };
 }
 
-export function toolExecutionError(toolName: string, serverName: string, cause: string): CliError {
+export function toolExecutionError(
+  toolName: string,
+  serverName: string,
+  cause: string,
+): CliError {
   let suggestion = 'Check tool arguments match the expected schema';
 
   // Detect common MCP error patterns
@@ -186,16 +218,21 @@ export function invalidTargetError(target: string): CliError {
   };
 }
 
-export function invalidJsonArgsError(input: string, parseError?: string): CliError {
+export function invalidJsonArgsError(
+  input: string,
+  parseError?: string,
+): CliError {
   // Truncate long input
-  const truncated = input.length > 100 ? input.substring(0, 100) + '...' : input;
+  const truncated =
+    input.length > 100 ? input.substring(0, 100) + '...' : input;
 
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'INVALID_JSON_ARGUMENTS',
     message: 'Invalid JSON in tool arguments',
     details: parseError ? `Parse error: ${parseError}` : `Input: ${truncated}`,
-    suggestion: 'Arguments must be valid JSON. Use single quotes around JSON: \'{"key": "value"}\'',
+    suggestion:
+      'Arguments must be valid JSON. Use single quotes around JSON: \'{"key": "value"}\'',
   };
 }
 
@@ -208,7 +245,10 @@ export function unknownOptionError(option: string): CliError {
   };
 }
 
-export function missingArgumentError(command: string, argument: string): CliError {
+export function missingArgumentError(
+  command: string,
+  argument: string,
+): CliError {
   return {
     code: ErrorCode.CLIENT_ERROR,
     type: 'MISSING_ARGUMENT',

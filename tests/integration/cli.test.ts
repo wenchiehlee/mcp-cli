@@ -297,3 +297,109 @@ describe('CLI Integration Tests', () => {
     });
   });
 });
+
+/**
+ * HTTP Transport Integration Tests
+ *
+ * These tests verify HTTP-based MCP server connectivity
+ * using the deepwiki.com public MCP server.
+ */
+describe('HTTP Transport Integration Tests', () => {
+  let tempDir: string;
+  let configPath: string;
+
+  beforeAll(async () => {
+    // Create temp directory for config
+    tempDir = await mkdtemp(join(tmpdir(), 'mcp-cli-http-test-'));
+
+    // Create config with HTTP-based MCP server
+    configPath = join(tempDir, 'mcp_servers.json');
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        mcpServers: {
+          deepwiki: {
+            url: 'https://mcp.deepwiki.com/mcp',
+          },
+        },
+      })
+    );
+  });
+
+  afterAll(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  // Helper to run CLI commands with HTTP config
+  async function runCli(
+    args: string[]
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
+
+    try {
+      const result =
+        await $`bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
+      return {
+        stdout: result.stdout.toString(),
+        stderr: result.stderr.toString(),
+        exitCode: result.exitCode,
+      };
+    } catch (error: any) {
+      return {
+        stdout: error.stdout?.toString() || '',
+        stderr: error.stderr?.toString() || '',
+        exitCode: error.exitCode || 1,
+      };
+    }
+  }
+
+  describe('list command with HTTP server', () => {
+    test('lists HTTP server and its tools', async () => {
+      const result = await runCli([]);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('deepwiki');
+    });
+
+    test('outputs JSON with --json flag', async () => {
+      const result = await runCli(['--json']);
+
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout);
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed[0].name).toBe('deepwiki');
+      expect(Array.isArray(parsed[0].tools)).toBe(true);
+    });
+  });
+
+  describe('info command with HTTP server', () => {
+    test('shows HTTP server details', async () => {
+      const result = await runCli(['deepwiki']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Server:');
+      expect(result.stdout).toContain('deepwiki');
+      expect(result.stdout).toContain('Transport:');
+      expect(result.stdout).toContain('HTTP');
+    });
+
+    test('outputs JSON with --json flag', async () => {
+      const result = await runCli(['deepwiki', '--json']);
+
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.name).toBe('deepwiki');
+      expect(parsed.config.url).toBe('https://mcp.deepwiki.com/mcp');
+      expect(parsed.tools).toBeDefined();
+    });
+  });
+
+  describe('grep command with HTTP server', () => {
+    test('searches HTTP server tools', async () => {
+      const result = await runCli(['grep', '*']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('deepwiki');
+    });
+  });
+});

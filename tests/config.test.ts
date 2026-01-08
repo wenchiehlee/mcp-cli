@@ -84,7 +84,10 @@ describe('config', () => {
       delete process.env.TEST_MCP_TOKEN;
     });
 
-    test('handles missing env vars gracefully', async () => {
+    test('handles missing env vars gracefully with MCP_STRICT_ENV=false', async () => {
+      // Set non-strict mode to allow missing env vars with warning
+      process.env.MCP_STRICT_ENV = 'false';
+
       const configPath = join(tempDir, 'missing_env.json');
       await writeFile(
         configPath,
@@ -101,6 +104,73 @@ describe('config', () => {
       const config = await loadConfig(configPath);
       const server = config.mcpServers.test as any;
       expect(server.env.TOKEN).toBe('');
+
+      delete process.env.MCP_STRICT_ENV;
+    });
+
+    test('throws error on missing env vars in strict mode (default)', async () => {
+      // Ensure strict mode is enabled (default)
+      delete process.env.MCP_STRICT_ENV;
+
+      const configPath = join(tempDir, 'missing_env_strict.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          mcpServers: {
+            test: {
+              command: 'echo',
+              env: { TOKEN: '${ANOTHER_NONEXISTENT_VAR}' },
+            },
+          },
+        })
+      );
+
+      await expect(loadConfig(configPath)).rejects.toThrow('MISSING_ENV_VAR');
+    });
+
+    test('throws error on empty server config', async () => {
+      const configPath = join(tempDir, 'empty_server.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          mcpServers: {
+            badserver: {},
+          },
+        })
+      );
+
+      await expect(loadConfig(configPath)).rejects.toThrow('missing required field');
+    });
+
+    test('throws error on server with both command and url', async () => {
+      const configPath = join(tempDir, 'both_types.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          mcpServers: {
+            mixed: {
+              command: 'echo',
+              url: 'https://example.com',
+            },
+          },
+        })
+      );
+
+      await expect(loadConfig(configPath)).rejects.toThrow('both "command" and "url"');
+    });
+
+    test('throws error on null server config', async () => {
+      const configPath = join(tempDir, 'null_server.json');
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          mcpServers: {
+            nullserver: null,
+          },
+        })
+      );
+
+      await expect(loadConfig(configPath)).rejects.toThrow('Invalid server configuration');
     });
   });
 

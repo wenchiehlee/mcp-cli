@@ -10,15 +10,21 @@
  *   mcp-cli <server>/<tool> <json>  Call tool with arguments
  */
 
-import { listCommand } from './commands/list.js';
+import { callCommand } from './commands/call.js';
 import { grepCommand } from './commands/grep.js';
 import { infoCommand } from './commands/info.js';
-import { callCommand } from './commands/call.js';
+import { listCommand } from './commands/list.js';
 import {
-  formatCliError,
-  unknownOptionError,
-  missingArgumentError,
+  DEFAULT_CONCURRENCY,
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_RETRY_DELAY_MS,
+  DEFAULT_TIMEOUT_SECONDS,
+} from './config.js';
+import {
   ErrorCode,
+  formatCliError,
+  missingArgumentError,
+  unknownOptionError,
 } from './errors.js';
 import { VERSION } from './version.js';
 
@@ -138,7 +144,11 @@ Output:
 Environment Variables:
   MCP_CONFIG_PATH          Path to config file (alternative to -c)
   MCP_DEBUG                Enable debug output
-  MCP_TIMEOUT              Request timeout in seconds (default: 30)
+  MCP_TIMEOUT              Request timeout in seconds (default: ${DEFAULT_TIMEOUT_SECONDS})
+  MCP_CONCURRENCY          Max parallel server connections (default: ${DEFAULT_CONCURRENCY})
+  MCP_MAX_RETRIES          Max retry attempts for transient errors (default: ${DEFAULT_MAX_RETRIES})
+  MCP_RETRY_DELAY          Base retry delay in milliseconds (default: ${DEFAULT_RETRY_DELAY_MS})
+  MCP_STRICT_ENV           Set to "false" to warn on missing env vars (default: true)
 
 Examples:
   mcp-cli                                    # List all servers

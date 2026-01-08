@@ -38,7 +38,7 @@ function color(text: string, colorCode: string): string {
  */
 export function formatServerList(
   servers: Array<{ name: string; tools: ToolInfo[] }>,
-  withDescriptions: boolean
+  withDescriptions: boolean,
 ): string {
   const lines: string[] = [];
 
@@ -64,7 +64,7 @@ export function formatServerList(
  */
 export function formatSearchResults(
   results: Array<{ server: string; tool: ToolInfo }>,
-  withDescriptions: boolean
+  withDescriptions: boolean,
 ): string {
   const lines: string[] = [];
 
@@ -87,18 +87,22 @@ export function formatServerDetails(
   serverName: string,
   config: ServerConfig,
   tools: ToolInfo[],
-  withDescriptions: boolean = false
+  withDescriptions = false,
 ): string {
   const lines: string[] = [];
 
-  lines.push(`${color('Server:', colors.bold)} ${color(serverName, colors.cyan)}`);
+  lines.push(
+    `${color('Server:', colors.bold)} ${color(serverName, colors.cyan)}`,
+  );
 
   if (isHttpServer(config)) {
     lines.push(`${color('Transport:', colors.bold)} HTTP`);
     lines.push(`${color('URL:', colors.bold)} ${config.url}`);
   } else {
     lines.push(`${color('Transport:', colors.bold)} stdio`);
-    lines.push(`${color('Command:', colors.bold)} ${config.command} ${(config.args || []).join(' ')}`);
+    lines.push(
+      `${color('Command:', colors.bold)} ${config.command} ${(config.args || []).join(' ')}`,
+    );
   }
 
   lines.push('');
@@ -118,9 +122,12 @@ export function formatServerDetails(
     if (schema.properties) {
       lines.push(`    ${color('Parameters:', colors.yellow)}`);
       for (const [name, prop] of Object.entries(schema.properties)) {
-        const required = schema.required?.includes(name) ? 'required' : 'optional';
+        const required = schema.required?.includes(name)
+          ? 'required'
+          : 'optional';
         const type = prop.type || 'any';
-        const desc = withDescriptions && prop.description ? ` - ${prop.description}` : '';
+        const desc =
+          withDescriptions && prop.description ? ` - ${prop.description}` : '';
         lines.push(`      • ${name} (${type}, ${required})${desc}`);
       }
     }
@@ -133,14 +140,15 @@ export function formatServerDetails(
 /**
  * Format tool schema
  */
-export function formatToolSchema(
-  serverName: string,
-  tool: ToolInfo
-): string {
+export function formatToolSchema(serverName: string, tool: ToolInfo): string {
   const lines: string[] = [];
 
-  lines.push(`${color('Tool:', colors.bold)} ${color(tool.name, colors.green)}`);
-  lines.push(`${color('Server:', colors.bold)} ${color(serverName, colors.cyan)}`);
+  lines.push(
+    `${color('Tool:', colors.bold)} ${color(tool.name, colors.green)}`,
+  );
+  lines.push(
+    `${color('Server:', colors.bold)} ${color(serverName, colors.cyan)}`,
+  );
   lines.push('');
 
   if (tool.description) {

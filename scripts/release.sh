@@ -92,7 +92,7 @@ git tag -a "v$VERSION" -m "Release v$VERSION"
 
 # Push changes and tag
 echo "Pushing to origin..."
-git push origin "$CURRENT_BRANCH"
+git push origin main
 git push origin "v$VERSION"
 
 echo ""

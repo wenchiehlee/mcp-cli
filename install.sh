@@ -12,9 +12,13 @@ NC='\033[0m'
 
 # Cleanup on exit
 TMP_FILE=""
+TMP_CHECKSUM=""
 cleanup() {
     if [ -n "$TMP_FILE" ] && [ -f "$TMP_FILE" ]; then
         rm -f "$TMP_FILE"
+    fi
+    if [ -n "$TMP_CHECKSUM" ] && [ -f "$TMP_CHECKSUM" ]; then
+        rm -f "$TMP_CHECKSUM"
     fi
 }
 trap cleanup EXIT
@@ -65,6 +69,7 @@ fi
 
 # Get latest release URL
 DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/latest/download/$BINARY"
+CHECKSUM_URL="https://github.com/$GITHUB_REPO/releases/latest/download/checksums.txt"
 
 # Download binary
 echo "Downloading from $DOWNLOAD_URL..."
@@ -73,6 +78,39 @@ if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_FILE"; then
     echo -e "${RED}Failed to download binary. Check if releases exist at:${NC}"
     echo "  https://github.com/$GITHUB_REPO/releases"
     exit 1
+fi
+
+# Verify checksum (if available)
+TMP_CHECKSUM=$(mktemp)
+echo "Verifying checksum..."
+if curl -fsSL "$CHECKSUM_URL" -o "$TMP_CHECKSUM" 2>/dev/null; then
+    # Extract checksum for our binary
+    EXPECTED_CHECKSUM=$(grep "$BINARY" "$TMP_CHECKSUM" | awk '{print $1}')
+    if [ -n "$EXPECTED_CHECKSUM" ]; then
+        # Calculate actual checksum
+        if command -v sha256sum &> /dev/null; then
+            ACTUAL_CHECKSUM=$(sha256sum "$TMP_FILE" | awk '{print $1}')
+        elif command -v shasum &> /dev/null; then
+            ACTUAL_CHECKSUM=$(shasum -a 256 "$TMP_FILE" | awk '{print $1}')
+        else
+            echo -e "${YELLOW}Warning: Could not verify checksum (no sha256sum/shasum found)${NC}"
+            ACTUAL_CHECKSUM=""
+        fi
+
+        if [ -n "$ACTUAL_CHECKSUM" ]; then
+            if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
+                echo -e "${RED}Checksum verification failed!${NC}"
+                echo "Expected: $EXPECTED_CHECKSUM"
+                echo "Actual: $ACTUAL_CHECKSUM"
+                exit 1
+            fi
+            echo -e "${GREEN}Checksum verified.${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Warning: No checksum found for $BINARY${NC}"
+    fi
+else
+    echo -e "${YELLOW}Warning: Could not download checksums file (skipping verification)${NC}"
 fi
 
 # Make executable

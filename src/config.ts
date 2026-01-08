@@ -6,12 +6,13 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
-  configNotFoundError,
-  configSearchError,
+  ErrorCode,
   configInvalidJsonError,
   configMissingFieldError,
-  serverNotFoundError,
+  configNotFoundError,
+  configSearchError,
   formatCliError,
+  serverNotFoundError,
 } from './errors.js';
 
 /**
@@ -50,19 +51,141 @@ export function isHttpServer(config: ServerConfig): config is HttpServerConfig {
  * Check if a server config is stdio-based
  */
 export function isStdioServer(
-  config: ServerConfig
+  config: ServerConfig,
 ): config is StdioServerConfig {
   return 'command' in config;
+}
+
+// ============================================================================
+// Environment Variables & Runtime Configuration
+// ============================================================================
+
+/**
+ * Default configuration values - centralized to avoid inline magic numbers
+ */
+export const DEFAULT_TIMEOUT_SECONDS = 1800; // 30 minutes
+export const DEFAULT_TIMEOUT_MS = DEFAULT_TIMEOUT_SECONDS * 1000;
+export const DEFAULT_CONCURRENCY = 5;
+export const DEFAULT_MAX_RETRIES = 3;
+export const DEFAULT_RETRY_DELAY_MS = 1000; // 1 second base delay
+
+/**
+ * Debug logging utility - only logs when MCP_DEBUG is set
+ */
+export function debug(message: string): void {
+  if (process.env.MCP_DEBUG) {
+    console.error(`[mcp-cli] ${message}`);
+  }
+}
+
+/**
+ * Get configured timeout in milliseconds
+ * @env MCP_TIMEOUT - timeout in seconds (default: 1800 = 30 minutes)
+ */
+export function getTimeoutMs(): number {
+  const envTimeout = process.env.MCP_TIMEOUT;
+  if (envTimeout) {
+    const seconds = Number.parseInt(envTimeout, 10);
+    if (!Number.isNaN(seconds) && seconds > 0) {
+      return seconds * 1000;
+    }
+  }
+  return DEFAULT_TIMEOUT_MS;
+}
+
+/**
+ * Get concurrency limit for parallel server connections
+ * @env MCP_CONCURRENCY - max parallel connections (default: 5)
+ */
+export function getConcurrencyLimit(): number {
+  const envConcurrency = process.env.MCP_CONCURRENCY;
+  if (envConcurrency) {
+    const limit = Number.parseInt(envConcurrency, 10);
+    if (!Number.isNaN(limit) && limit > 0) {
+      return limit;
+    }
+  }
+  return DEFAULT_CONCURRENCY;
+}
+
+/**
+ * Get max retry attempts for transient failures
+ * @env MCP_MAX_RETRIES - max retry attempts (default: 3, use 0 to disable retries)
+ */
+export function getMaxRetries(): number {
+  const envRetries = process.env.MCP_MAX_RETRIES;
+  if (envRetries) {
+    const retries = Number.parseInt(envRetries, 10);
+    if (!Number.isNaN(retries) && retries >= 0) {
+      return retries;
+    }
+  }
+  return DEFAULT_MAX_RETRIES;
+}
+
+/**
+ * Get base delay for retry backoff in milliseconds
+ * @env MCP_RETRY_DELAY - base delay in milliseconds (default: 1000)
+ */
+export function getRetryDelayMs(): number {
+  const envDelay = process.env.MCP_RETRY_DELAY;
+  if (envDelay) {
+    const delay = Number.parseInt(envDelay, 10);
+    if (!Number.isNaN(delay) && delay > 0) {
+      return delay;
+    }
+  }
+  return DEFAULT_RETRY_DELAY_MS;
+}
+
+/**
+ * Check if strict environment variable mode is enabled
+ * @env MCP_STRICT_ENV - set to "false" to warn instead of error (default: true)
+ */
+function isStrictEnvMode(): boolean {
+  const value = process.env.MCP_STRICT_ENV?.toLowerCase();
+  return value !== 'false' && value !== '0';
 }
 
 /**
  * Substitute environment variables in a string
  * Supports ${VAR_NAME} syntax
+ *
+ * By default (strict mode), throws an error when referenced env var is not set.
+ * Set MCP_STRICT_ENV=false to warn instead of error.
  */
 function substituteEnvVars(value: string): string {
-  return value.replace(/\$\{([^}]+)\}/g, (_, varName) => {
-    return process.env[varName] || '';
+  const missingVars: string[] = [];
+
+  const result = value.replace(/\$\{([^}]+)\}/g, (match, varName) => {
+    const envValue = process.env[varName];
+    if (envValue === undefined) {
+      missingVars.push(varName);
+      return '';
+    }
+    return envValue;
   });
+
+  if (missingVars.length > 0) {
+    const varList = missingVars.map((v) => `\${${v}}`).join(', ');
+    const message = `Missing environment variable${missingVars.length > 1 ? 's' : ''}: ${varList}`;
+
+    if (isStrictEnvMode()) {
+      throw new Error(
+        formatCliError({
+          code: ErrorCode.CLIENT_ERROR,
+          type: 'MISSING_ENV_VAR',
+          message: message,
+          details: 'Referenced in config but not set in environment',
+          suggestion: `Set the variable(s) before running: export ${missingVars[0]}="value" or set MCP_STRICT_ENV=false to use empty values`,
+        }),
+      );
+    }
+    // Non-strict mode: warn but continue
+    console.error(`[mcp-cli] Warning: ${message}`);
+  }
+
+  return result;
 }
 
 /**
@@ -106,7 +229,7 @@ function getDefaultConfigPaths(): string[] {
  * Load and parse MCP servers configuration
  */
 export async function loadConfig(
-  explicitPath?: string
+  explicitPath?: string,
 ): Promise<McpServersConfig> {
   let configPath: string | undefined;
 
@@ -145,12 +268,64 @@ export async function loadConfig(
   try {
     config = JSON.parse(content);
   } catch (e) {
-    throw new Error(formatCliError(configInvalidJsonError(configPath, (e as Error).message)));
+    throw new Error(
+      formatCliError(configInvalidJsonError(configPath, (e as Error).message)),
+    );
   }
 
   // Validate structure
   if (!config.mcpServers || typeof config.mcpServers !== 'object') {
     throw new Error(formatCliError(configMissingFieldError(configPath)));
+  }
+
+  // Warn if no servers are configured
+  if (Object.keys(config.mcpServers).length === 0) {
+    console.error(
+      '[mcp-cli] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.',
+    );
+  }
+
+  // Validate individual server configs
+  for (const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
+    if (!serverConfig || typeof serverConfig !== 'object') {
+      throw new Error(
+        formatCliError({
+          code: ErrorCode.CLIENT_ERROR,
+          type: 'CONFIG_INVALID_SERVER',
+          message: `Invalid server configuration for "${serverName}"`,
+          details: 'Server config must be an object',
+          suggestion: `Use { "command": "..." } for stdio or { "url": "..." } for HTTP`,
+        }),
+      );
+    }
+
+    const hasCommand = 'command' in serverConfig;
+    const hasUrl = 'url' in serverConfig;
+
+    if (!hasCommand && !hasUrl) {
+      throw new Error(
+        formatCliError({
+          code: ErrorCode.CLIENT_ERROR,
+          type: 'CONFIG_INVALID_SERVER',
+          message: `Server "${serverName}" missing required field`,
+          details: `Must have either "command" (for stdio) or "url" (for HTTP)`,
+          suggestion: `Add "command": "npx ..." for local servers or "url": "https://..." for remote servers`,
+        }),
+      );
+    }
+
+    if (hasCommand && hasUrl) {
+      throw new Error(
+        formatCliError({
+          code: ErrorCode.CLIENT_ERROR,
+          type: 'CONFIG_INVALID_SERVER',
+          message: `Server "${serverName}" has both "command" and "url"`,
+          details:
+            'A server must be either stdio (command) or HTTP (url), not both',
+          suggestion: `Remove one of "command" or "url"`,
+        }),
+      );
+    }
   }
 
   // Substitute environment variables
@@ -164,7 +339,7 @@ export async function loadConfig(
  */
 export function getServerConfig(
   config: McpServersConfig,
-  serverName: string
+  serverName: string,
 ): ServerConfig {
   const server = config.mcpServers[serverName];
   if (!server) {
