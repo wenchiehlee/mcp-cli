@@ -10,6 +10,7 @@
  *   mcp-cli <server>/<tool> <json>  Call tool with arguments
  */
 
+import * as fs from 'node:fs';
 import { callCommand } from './commands/call.js';
 import { grepCommand } from './commands/grep.js';
 import { infoCommand } from './commands/info.js';
@@ -27,7 +28,6 @@ import {
   unknownOptionError,
 } from './errors.js';
 import { VERSION } from './version.js';
-import * as fs from 'node:fs';
 
 /**
  * Check if stdin has data available (for detecting piped input in non-TTY environments)
