@@ -2,8 +2,6 @@
 
 A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 ## Features
 
 - 🪶 **Lightweight** - Minimal dependencies, fast startup
@@ -12,6 +10,8 @@ A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)]
 - 🤖 **Agent-Optimized** - Designed for AI coding agents (Gemini CLI, Claude Code, etc.)
 - 🔌 **Universal** - Supports both stdio and HTTP MCP servers
 - 💡 **Actionable Errors** - Structured error messages with recovery suggestions
+
+![mcp-cli](./comparison.jpeg)
 
 ## Quick Start
 
