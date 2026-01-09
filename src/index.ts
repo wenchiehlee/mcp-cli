@@ -10,7 +10,6 @@
  *   mcp-cli <server>/<tool> <json>  Call tool with arguments
  */
 
-import * as fs from 'node:fs';
 import { callCommand } from './commands/call.js';
 import { grepCommand } from './commands/grep.js';
 import { infoCommand } from './commands/info.js';
@@ -28,20 +27,6 @@ import {
   unknownOptionError,
 } from './errors.js';
 import { VERSION } from './version.js';
-
-/**
- * Check if stdin has data available (for detecting piped input in non-TTY environments)
- * Uses fstatSync to check if stdin is a FIFO/pipe with data
- */
-function hasStdinData(): boolean {
-  try {
-    const stats = fs.fstatSync(0); // fd 0 is stdin
-    // Check if it's a FIFO (pipe) or regular file with size
-    return stats.isFIFO() || (stats.isFile() && stats.size > 0);
-  } catch {
-    return false;
-  }
-}
 
 interface ParsedArgs {
   command: 'list' | 'grep' | 'info' | 'call' | 'help' | 'version';
@@ -95,7 +80,8 @@ function parseArgs(args: string[]): ParsedArgs {
         break;
 
       default:
-        if (arg.startsWith('-')) {
+        // Single '-' is allowed (stdin indicator), but other dash-prefixed args are options
+        if (arg.startsWith('-') && arg !== '-') {
           console.error(formatCliError(unknownOptionError(arg)));
           process.exit(ErrorCode.CLIENT_ERROR);
         }
@@ -118,10 +104,9 @@ function parseArgs(args: string[]): ParsedArgs {
     result.target = positional[0];
     if (positional.length > 1) {
       result.command = 'call';
-      result.args = positional.slice(1).join(' ');
-    } else if (!process.stdin.isTTY && hasStdinData()) {
-      // If stdin has data (piped input), treat as call command
-      result.command = 'call';
+      // Support '-' to indicate stdin (Unix convention)
+      const argsValue = positional.slice(1).join(' ');
+      result.args = argsValue === '-' ? undefined : argsValue;
     } else {
       result.command = 'info';
     }
@@ -175,6 +160,7 @@ Examples:
   mcp-cli filesystem                         # Show server tools
   mcp-cli filesystem/read_file               # Show tool schema
   mcp-cli filesystem/read_file '{"path":"./README.md"}'  # Call tool
+  echo '{"path":"./file"}' | mcp-cli server/tool -       # Read JSON from stdin
 
 Config File:
   The CLI looks for mcp_servers.json in:
