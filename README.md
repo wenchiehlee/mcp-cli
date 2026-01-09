@@ -186,14 +186,15 @@ Input Schema:
 # With inline JSON
 $ mcp-cli github/search_repositories '{"query": "mcp server", "per_page": 5}'
 
-# From stdin (pipe)
-$ echo '{"query": "mcp"}' | mcp-cli github/search_repositories
-
 # JSON output for scripting
 $ mcp-cli github/search_repositories '{"query": "mcp"}' --json | jq '.content[0].text'
+
+# Chain Calls and outputs 
+$ echo '{"path": "./README.md"}' | mcp-cli filesystem/read_file 
+
 ```
 
-#### Complex JSON with Quotes
+#### Complex Commands
 
 For JSON arguments containing single quotes, special characters, or long text, use **stdin** to avoid shell escaping issues:
 
@@ -212,6 +213,9 @@ cat args.json | mcp-cli server/tool
 
 # Using jq to build complex JSON
 jq -n '{query: "mcp", filters: ["active", "starred"]}' | mcp-cli github/search
+
+# Find all TypeScript files and read the first one
+mcp-cli filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcp-cli filesystem/read_file "{\"path\": \"{}\"}"'
 ```
 
 **Why stdin?** Shell interpretation of `{}`, quotes, and special characters requires careful escaping. Stdin bypasses shell parsing entirely, making it reliable for any JSON content.
@@ -322,6 +326,9 @@ $ echo '{"query": "mcp"}' | mcp-cli github/search_repositories
 mcp-cli server/tool <<EOF
 {"content": "Text with 'single quotes' and \"double quotes\""}
 EOF
+
+# Complex Command chaining with xargs and jq
+mcp-cli filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcp-cli filesystem/read_file "{\"path\": \"{}\"}"'
 ```
 
 ### Rules

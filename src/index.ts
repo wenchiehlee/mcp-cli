@@ -104,6 +104,9 @@ function parseArgs(args: string[]): ParsedArgs {
     if (positional.length > 1) {
       result.command = 'call';
       result.args = positional.slice(1).join(' ');
+    } else if (!process.stdin.isTTY) {
+      // If stdin has data (piped input), treat as call command
+      result.command = 'call';
     } else {
       result.command = 'info';
     }

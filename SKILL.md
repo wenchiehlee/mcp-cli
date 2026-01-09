@@ -57,6 +57,9 @@ EOF
 
 # Or pipe from a file/command
 cat args.json | mcp-cli server/tool
+
+# Complex Command chaining with xargs and jq
+mcp-cli filesystem/search_files '{"path": "src/", "pattern": "*.ts"}' --json | jq -r '.content[0].text' | head -1 | xargs -I {} sh -c 'mcp-cli filesystem/read_file "{\"path\": \"{}\"}"'
 ```
 
 
