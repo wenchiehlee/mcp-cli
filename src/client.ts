@@ -194,11 +194,15 @@ export async function safeClose(close: () => Promise<void>): Promise<void> {
 
 /**
  * Connect to an MCP server with retry logic
+ * Captures stderr from stdio servers to include in error messages
  */
 export async function connectToServer(
   serverName: string,
   config: ServerConfig,
 ): Promise<ConnectedClient> {
+  // Collect stderr for better error messages
+  const stderrChunks: string[] = [];
+
   return withRetry(async () => {
     const client = new Client(
       {
@@ -216,9 +220,41 @@ export async function connectToServer(
       transport = createHttpTransport(config);
     } else {
       transport = createStdioTransport(config);
+
+      // Capture stderr for debugging - attach BEFORE connect
+      // Always stream stderr immediately so auth prompts are visible
+      const stderrStream = transport.stderr;
+      if (stderrStream) {
+        stderrStream.on('data', (chunk: Buffer) => {
+          const text = chunk.toString();
+          stderrChunks.push(text);
+          // Always stream stderr immediately so users can see auth prompts
+          process.stderr.write(`[${serverName}] ${text}`);
+        });
+      }
     }
 
-    await client.connect(transport);
+    try {
+      await client.connect(transport);
+    } catch (error) {
+      // Enhance error with captured stderr
+      const stderrOutput = stderrChunks.join('').trim();
+      if (stderrOutput) {
+        const err = error as Error;
+        err.message = `${err.message}\n\nServer stderr:\n${stderrOutput}`;
+      }
+      throw error;
+    }
+
+    // For successful connections, forward stderr to console
+    if (!isHttpServer(config)) {
+      const stderrStream = (transport as StdioClientTransport).stderr;
+      if (stderrStream) {
+        stderrStream.on('data', (chunk: Buffer) => {
+          process.stderr.write(chunk);
+        });
+      }
+    }
 
     return {
       client,
@@ -246,6 +282,7 @@ function createHttpTransport(
 
 /**
  * Create stdio transport for local servers
+ * Uses stderr: 'pipe' to capture server output for debugging
  */
 function createStdioTransport(config: StdioServerConfig): StdioClientTransport {
   // Merge process.env with config.env, filtering out undefined values
@@ -264,6 +301,7 @@ function createStdioTransport(config: StdioServerConfig): StdioClientTransport {
     args: config.args,
     env: mergedEnv,
     cwd: config.cwd,
+    stderr: 'pipe', // Capture stderr for better error messages
   });
 }
 
