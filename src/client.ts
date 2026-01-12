@@ -301,10 +301,14 @@ export async function callTool(
   args: Record<string, unknown>,
 ): Promise<unknown> {
   return withRetry(async () => {
-    const result = await client.callTool({
-      name: toolName,
-      arguments: args,
-    });
+    const result = await client.callTool(
+      {
+        name: toolName,
+        arguments: args,
+      },
+      undefined,
+      { timeout: getTimeoutMs() },
+    );
     return result;
   }, `call tool ${toolName}`);
 }
