@@ -8,11 +8,11 @@
  */
 
 import {
-  getConnection,
+  type McpConnection,
   debug,
+  getConnection,
   getTimeoutMs,
   safeClose,
-  type McpConnection,
 } from '../client.js';
 import {
   type McpServersConfig,
@@ -189,4 +189,3 @@ export async function callCommand(options: CallOptions): Promise<void> {
     await safeClose(connection.close);
   }
 }
-

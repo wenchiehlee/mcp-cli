@@ -16,11 +16,15 @@ import {
   getMaxRetries,
   getRetryDelayMs,
   getTimeoutMs,
-  isHttpServer,
   isDaemonEnabled,
+  isHttpServer,
   isToolAllowed,
 } from './config.js';
-import { getDaemonConnection, cleanupOrphanedDaemons, type DaemonConnection } from './daemon-client.js';
+import {
+  type DaemonConnection,
+  cleanupOrphanedDaemons,
+  getDaemonConnection,
+} from './daemon-client.js';
 import { VERSION } from './version.js';
 
 // Re-export config utilities for convenience
@@ -36,7 +40,10 @@ export interface ConnectedClient {
  */
 export interface McpConnection {
   listTools: () => Promise<ToolInfo[]>;
-  callTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
+  callTool: (
+    toolName: string,
+    args: Record<string, unknown>,
+  ) => Promise<unknown>;
   getInstructions: () => Promise<string | undefined>;
   close: () => Promise<void>;
   isDaemon: boolean;
@@ -372,10 +379,10 @@ export async function callTool(
 
 /**
  * Get a unified connection to an MCP server
- * 
+ *
  * If daemon mode is enabled (default), tries to use a cached daemon connection.
  * Falls back to direct connection if daemon fails or is disabled.
- * 
+ *
  * @param serverName - Name of the server from config
  * @param config - Server configuration
  * @returns McpConnection with listTools, callTool, and close methods
@@ -400,10 +407,15 @@ export async function getConnection(
             // Apply tool filtering from config
             return filterTools(tools, config);
           },
-          async callTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
+          async callTool(
+            toolName: string,
+            args: Record<string, unknown>,
+          ): Promise<unknown> {
             // Check if tool is allowed before calling
             if (!isToolAllowed(toolName, config)) {
-              throw new Error(`Tool "${toolName}" is disabled by configuration`);
+              throw new Error(
+                `Tool "${toolName}" is disabled by configuration`,
+              );
             }
             return daemonConn.callTool(toolName, args);
           },
@@ -417,7 +429,9 @@ export async function getConnection(
         };
       }
     } catch (err) {
-      debug(`Daemon connection failed for ${serverName}: ${(err as Error).message}, falling back to direct`);
+      debug(
+        `Daemon connection failed for ${serverName}: ${(err as Error).message}, falling back to direct`,
+      );
     }
   }
 
@@ -431,7 +445,10 @@ export async function getConnection(
       // Apply tool filtering from config
       return filterTools(tools, config);
     },
-    async callTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
+    async callTool(
+      toolName: string,
+      args: Record<string, unknown>,
+    ): Promise<unknown> {
       // Check if tool is allowed before calling
       if (!isToolAllowed(toolName, config)) {
         throw new Error(`Tool "${toolName}" is disabled by configuration`);

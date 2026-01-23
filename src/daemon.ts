@@ -1,22 +1,33 @@
 /**
  * MCP-CLI Daemon - Background worker that maintains persistent MCP connections
- * 
+ *
  * This is spawned as a detached process and manages a Unix socket for IPC.
  * It maintains the MCP server connection and forwards requests from CLI invocations.
  */
 
-import { existsSync, mkdirSync, unlinkSync, writeFileSync, readFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname } from 'node:path';
+import {
+  type ConnectedClient,
+  callTool,
+  connectToServer,
+  listTools,
+} from './client.js';
 import {
   type ServerConfig,
   debug,
+  getConfigHash,
   getDaemonTimeoutMs,
-  getSocketPath,
   getPidPath,
   getSocketDir,
-  getConfigHash,
+  getSocketPath,
 } from './config.js';
-import { connectToServer, listTools, callTool, type ConnectedClient } from './client.js';
 
 // ============================================================================
 // Types
@@ -143,7 +154,10 @@ export function killProcess(pid: number): boolean {
 /**
  * Main daemon entry point - run as detached background process
  */
-export async function runDaemon(serverName: string, config: ServerConfig): Promise<void> {
+export async function runDaemon(
+  serverName: string,
+  config: ServerConfig,
+): Promise<void> {
   const socketPath = getSocketPath(serverName);
   const configHash = getConfigHash(config);
   const timeoutMs = getDaemonTimeoutMs();
@@ -151,7 +165,6 @@ export async function runDaemon(serverName: string, config: ServerConfig): Promi
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let mcpClient: ConnectedClient | null = null;
   let server: ReturnType<typeof Bun.listen> | null = null;
-  // biome-ignore lint: Socket type from Bun.listen handlers
   const activeConnections = new Set<unknown>();
 
   // Cleanup function
@@ -241,7 +254,10 @@ export async function runDaemon(serverName: string, config: ServerConfig): Promi
     mcpClient = await connectToServer(serverName, config);
     debug(`[daemon:${serverName}] Connected to MCP server`);
   } catch (error) {
-    console.error(`[daemon:${serverName}] Failed to connect:`, (error as Error).message);
+    console.error(
+      `[daemon:${serverName}] Failed to connect:`,
+      (error as Error).message,
+    );
     await cleanup();
     process.exit(1);
   }
@@ -289,7 +305,11 @@ export async function runDaemon(serverName: string, config: ServerConfig): Promi
               error: { code: 'MISSING_TOOL', message: 'toolName required' },
             };
           }
-          const result = await callTool(mcpClient.client, request.toolName, request.args ?? {});
+          const result = await callTool(
+            mcpClient.client,
+            request.toolName,
+            request.args ?? {},
+          );
           return { id: request.id, success: true, data: result };
         }
 
@@ -310,7 +330,10 @@ export async function runDaemon(serverName: string, config: ServerConfig): Promi
           return {
             id: request.id,
             success: false,
-            error: { code: 'UNKNOWN_TYPE', message: `Unknown request type: ${request.type}` },
+            error: {
+              code: 'UNKNOWN_TYPE',
+              message: `Unknown request type: ${request.type}`,
+            },
           };
       }
     } catch (error) {
@@ -334,7 +357,7 @@ export async function runDaemon(serverName: string, config: ServerConfig): Promi
         },
         async data(socket, data) {
           const response = await handleRequest(data);
-          socket.write(JSON.stringify(response) + '\n');
+          socket.write(`${JSON.stringify(response)}\n`);
         },
         close(socket) {
           activeConnections.delete(socket);
@@ -354,9 +377,11 @@ export async function runDaemon(serverName: string, config: ServerConfig): Promi
 
     // Signal readiness by writing to stdout (parent will read this)
     console.log('DAEMON_READY');
-
   } catch (error) {
-    console.error(`[daemon:${serverName}] Failed to start socket server:`, (error as Error).message);
+    console.error(
+      `[daemon:${serverName}] Failed to start socket server:`,
+      (error as Error).message,
+    );
     await cleanup();
     process.exit(1);
   }

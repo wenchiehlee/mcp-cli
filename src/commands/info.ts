@@ -2,7 +2,7 @@
  * Info command - Show server or tool details
  */
 
-import { getConnection, safeClose, type McpConnection } from '../client.js';
+import { type McpConnection, getConnection, safeClose } from '../client.js';
 import {
   type McpServersConfig,
   type ServerConfig,
@@ -15,10 +15,7 @@ import {
   serverConnectionError,
   toolNotFoundError,
 } from '../errors.js';
-import {
-  formatServerDetails,
-  formatToolSchema,
-} from '../output.js';
+import { formatServerDetails, formatToolSchema } from '../output.js';
 
 export interface InfoOptions {
   target: string; // "server" or "server/tool"
@@ -111,4 +108,3 @@ export async function infoCommand(options: InfoOptions): Promise<void> {
     await safeClose(connection.close);
   }
 }
-

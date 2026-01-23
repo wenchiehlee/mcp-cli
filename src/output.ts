@@ -49,8 +49,13 @@ export function formatServerList(
     if (server.instructions) {
       const instructionLines = server.instructions.split('\n');
       const firstLine = instructionLines[0].slice(0, 100);
-      const suffix = instructionLines.length > 1 || instructionLines[0].length > 100 ? '...' : '';
-      lines.push(`  ${color(`Instructions: ${firstLine}${suffix}`, colors.dim)}`);
+      const suffix =
+        instructionLines.length > 1 || instructionLines[0].length > 100
+          ? '...'
+          : '';
+      lines.push(
+        `  ${color(`Instructions: ${firstLine}${suffix}`, colors.dim)}`,
+      );
     }
 
     for (const tool of server.tools) {
@@ -81,7 +86,9 @@ export function formatSearchResults(
     const tool = color(result.tool.name, colors.green);
     // Always show description if available (grep is for discovery)
     if (result.tool.description) {
-      lines.push(`${server} ${tool} ${color(result.tool.description, colors.dim)}`);
+      lines.push(
+        `${server} ${tool} ${color(result.tool.description, colors.dim)}`,
+      );
     } else {
       lines.push(`${server} ${tool}`);
     }
@@ -122,7 +129,7 @@ export function formatServerDetails(
     // Indent multi-line instructions
     const indentedInstructions = instructions
       .split('\n')
-      .map(line => `  ${line}`)
+      .map((line) => `  ${line}`)
       .join('\n');
     lines.push(indentedInstructions);
   }

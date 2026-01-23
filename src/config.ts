@@ -17,7 +17,7 @@ import {
 
 /**
  * Base server configuration with tool filtering
- * 
+ *
  * Tool Filtering Rules:
  * - If allowedTools is specified, only tools matching those patterns are available
  * - If disabledTools is specified, tools matching those patterns are excluded
@@ -78,17 +78,17 @@ function matchesPattern(name: string, pattern: string): boolean {
  * Check if a tool name matches any of the given patterns
  */
 function matchesAnyPattern(name: string, patterns: string[]): boolean {
-  return patterns.some(pattern => matchesPattern(name, pattern));
+  return patterns.some((pattern) => matchesPattern(name, pattern));
 }
 
 /**
  * Filter tools based on allowedTools and disabledTools configuration
- * 
+ *
  * Rules:
  * - If allowedTools is specified, only tools matching those patterns are available
  * - If disabledTools is specified, tools matching those patterns are excluded
  * - disabledTools takes precedence over allowedTools
- * 
+ *
  * @param tools - Array of tools with name property
  * @param config - Server config with optional allowedTools/disabledTools
  * @returns Filtered array of tools
@@ -99,7 +99,7 @@ export function filterTools<T extends { name: string }>(
 ): T[] {
   const { allowedTools, disabledTools } = config;
 
-  return tools.filter(tool => {
+  return tools.filter((tool) => {
     // First check if tool is in disabledTools (takes precedence)
     if (disabledTools && disabledTools.length > 0) {
       if (matchesAnyPattern(tool.name, disabledTools)) {
@@ -119,7 +119,7 @@ export function filterTools<T extends { name: string }>(
 
 /**
  * Check if a specific tool is allowed by the config
- * 
+ *
  * @param toolName - Name of the tool to check
  * @param config - Server config with optional allowedTools/disabledTools
  * @returns true if tool is allowed, false otherwise

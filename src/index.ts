@@ -184,7 +184,7 @@ function parseArgs(args: string[]): ParsedArgs {
         `${process.env.HOME}/.config/mcp/mcp_servers.json`,
       ].filter(Boolean) as string[];
 
-      const fs = require('fs');
+      const fs = require('node:fs');
       for (const cfgPath of configPaths) {
         try {
           const content = fs.readFileSync(cfgPath, 'utf-8');
@@ -198,13 +198,18 @@ function parseArgs(args: string[]): ParsedArgs {
         }
       }
 
-      const serverList = availableServers.length > 0
-        ? availableServers.join(', ')
-        : '(none found)';
+      const serverList =
+        availableServers.length > 0
+          ? availableServers.join(', ')
+          : '(none found)';
 
-      console.error(`Error [MISSING_ARGUMENT]: Missing required argument for info: server`);
+      console.error(
+        'Error [MISSING_ARGUMENT]: Missing required argument for info: server',
+      );
       console.error(`  Available servers: ${serverList}`);
-      console.error(`  Suggestion: Use 'mcp-cli info <server>' to see server details, or just 'mcp-cli' to list all`);
+      console.error(
+        `  Suggestion: Use 'mcp-cli info <server>' to see server details, or just 'mcp-cli' to list all`,
+      );
       process.exit(ErrorCode.CLIENT_ERROR);
     }
 
@@ -298,9 +303,7 @@ function parseArgs(args: string[]): ParsedArgs {
     const toolName = parts[1] || '';
     const hasArgs = positional.length > 1;
     console.error(
-      formatCliError(
-        ambiguousCommandError(serverName, toolName, hasArgs),
-      ),
+      formatCliError(ambiguousCommandError(serverName, toolName, hasArgs)),
     );
     process.exit(ErrorCode.CLIENT_ERROR);
   }
@@ -469,4 +472,3 @@ main()
     console.error(error.message);
     setImmediate(() => process.exit(ErrorCode.CLIENT_ERROR));
   });
-

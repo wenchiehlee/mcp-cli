@@ -3,11 +3,11 @@
  */
 
 import {
-  type ToolInfo,
   type McpConnection,
-  getConnection,
+  type ToolInfo,
   debug,
   getConcurrencyLimit,
+  getConnection,
   safeClose,
 } from '../client.js';
 import {

@@ -1,6 +1,6 @@
 /**
  * MCP-CLI Daemon Client - IPC client for communicating with daemon workers
- * 
+ *
  * Handles spawning daemons, detecting stale connections, and forwarding requests.
  */
 
@@ -9,18 +9,18 @@ import { join } from 'node:path';
 import {
   type ServerConfig,
   debug,
-  getSocketPath,
   getConfigHash,
   getSocketDir,
+  getSocketPath,
 } from './config.js';
 import {
+  type DaemonRequest,
+  type DaemonResponse,
+  isProcessRunning,
+  killProcess,
   readPidFile,
   removePidFile,
   removeSocketFile,
-  isProcessRunning,
-  killProcess,
-  type DaemonRequest,
-  type DaemonResponse,
 } from './daemon.js';
 
 // ============================================================================
@@ -33,7 +33,10 @@ import {
 export interface DaemonConnection {
   serverName: string;
   listTools: () => Promise<unknown>;
-  callTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
+  callTool: (
+    toolName: string,
+    args: Record<string, unknown>,
+  ) => Promise<unknown>;
   getInstructions: () => Promise<string | undefined>;
   close: () => Promise<void>;
 }
@@ -48,7 +51,10 @@ function generateRequestId(): string {
 /**
  * Send a request to the daemon and wait for response
  */
-async function sendRequest(socketPath: string, request: DaemonRequest): Promise<DaemonResponse> {
+async function sendRequest(
+  socketPath: string,
+  request: DaemonRequest,
+): Promise<DaemonResponse> {
   return new Promise((resolve, reject) => {
     const socket = Bun.connect({
       unix: socketPath,
@@ -109,7 +115,9 @@ function isDaemonValid(serverName: string, config: ServerConfig): boolean {
   // Check if config matches
   const currentHash = getConfigHash(config);
   if (pidInfo.configHash !== currentHash) {
-    debug(`[daemon-client] Config hash mismatch for ${serverName}, killing old daemon`);
+    debug(
+      `[daemon-client] Config hash mismatch for ${serverName}, killing old daemon`,
+    );
     killProcess(pidInfo.pid);
     removePidFile(serverName);
     removeSocketFile(serverName);
@@ -130,7 +138,10 @@ function isDaemonValid(serverName: string, config: ServerConfig): boolean {
 /**
  * Spawn a new daemon process for a server
  */
-async function spawnDaemon(serverName: string, config: ServerConfig): Promise<boolean> {
+async function spawnDaemon(
+  serverName: string,
+  config: ServerConfig,
+): Promise<boolean> {
   debug(`[daemon-client] Spawning daemon for ${serverName}`);
 
   // Find the daemon script path
@@ -246,7 +257,9 @@ export async function getDaemonConnection(
       return null;
     }
   } catch (error) {
-    debug(`[daemon-client] Connection test failed for ${serverName}: ${(error as Error).message}`);
+    debug(
+      `[daemon-client] Connection test failed for ${serverName}: ${(error as Error).message}`,
+    );
     return null;
   }
 
@@ -269,7 +282,10 @@ export async function getDaemonConnection(
       return response.data;
     },
 
-    async callTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
+    async callTool(
+      toolName: string,
+      args: Record<string, unknown>,
+    ): Promise<unknown> {
       const response = await sendRequest(socketPath, {
         id: generateRequestId(),
         type: 'callTool',
