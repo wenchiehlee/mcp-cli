@@ -20,6 +20,13 @@ build-release: ## Build the application in release mode (fully optimized)
 	@echo "==> Building in release mode..."
 	$(CARGO) build --release
 
+.PHONY: install
+install: build-release ## Install the compiled release binary to ~/.local/bin
+	@echo "==> Installing binary to ~/.local/bin..."
+	@mkdir -p $(HOME)/.local/bin
+	@cp target/release/mcp-cli $(HOME)/.local/bin/mcp-cli
+	@echo "==> Installation complete! Make sure ~/.local/bin is in your PATH."
+
 .PHONY: run
 run: ## Run the application in debug mode
 	$(CARGO) run --
