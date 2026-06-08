@@ -1,11 +1,11 @@
 # mcp-cli
 
-A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers.
+A lightweight, Rust-based CLI for interacting with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers.
 
 ## Features
 
-- 🪶 **Lightweight** - Minimal dependencies, fast startup
-- 📦 **Single Binary** - Compile to standalone executable via `bun build --compile`
+- 🪶 **Lightweight** - Minimal dependencies, blazing fast startup, written in pure Rust
+- 📦 **Single Binary** - Compile to a single, fully-optimized standalone executable with zero external runtime dependencies via Cargo
 - 🔧 **Shell-Friendly** - JSON output for call, pipes with `jq`, chaining support
 - 🤖 **Agent-Optimized** - Designed for AI coding agents (Gemini CLI, Claude Code, etc.)
 - 🔌 **Universal** - Supports both stdio and HTTP MCP servers
@@ -540,6 +540,7 @@ The CLI includes **automatic retry with exponential backoff** for transient fail
 ### Prerequisites
 
 - [Rust](https://www.rust-lang.org/) (Cargo) >= 1.75.0
+- [Make](https://www.gnu.org/software/make/) (optional, for running Makefile tasks)
 
 ### Setup
 
@@ -548,51 +549,61 @@ git clone https://github.com/doggy8088/mcp-cli.git
 cd mcp-cli
 ```
 
-### Commands
+### Makefile Tasks
+
+The project includes a `Makefile` for common development, testing, installation, and release tasks. Run `make` or `make help` to view all available commands:
 
 ```bash
-# Run in development
-cargo run -- --help
-
-# Code formatting check
-cargo fmt --all -- --check
-
-# Linting check
-cargo clippy --all-targets --all-features -- -D warnings
-
-# Run all unit tests
-cargo test
+$ make help
+mcp-cli Management Tasks:
+--------------------------------------------------------
+all                Build the application in release mode (fully optimized)
+build              Build the application in debug mode
+build-release      Build the application in release mode (fully optimized)
+clean              Remove compiled target files
+clippy             Run clippy for static analysis and lint checks
+fmt                Check and enforce Rust formatting standards
+fmt-fix            Format all Rust source files automatically
+help               Show this help menu with descriptions of each command
+install            Install the compiled release binary to ~/.local/bin
+release            Trigger a new release (usage: make release VERSION=X.Y.Z)
+test               Run the native Rust unit tests
+uninstall          Remove the mcp-cli binary from ~/.local/bin
+--------------------------------------------------------
 ```
 
-### Local Testing
+### Local Installation and Testing
 
-Test the CLI locally without compiling by using `bun link`:
+To compile and install the CLI locally to your `~/.local/bin` directory, run:
 
 ```bash
-# Link the package globally (run once)
-bun link
+make install
+```
 
-# Now you can use 'mcp-cli' anywhere
+Make sure `~/.local/bin` is in your `PATH` (e.g., in your `~/.zshrc` or `~/.bashrc`):
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Once installed, you can run the CLI from anywhere:
+
+```bash
 mcp-cli --help
-mcp-cli call filesystem read_file '{"path": "./README.md"}'
-
-# Or run directly during development
-bun run dev --help
-bun run dev info filesystem
 ```
 
-To unlink when done:
+To remove the binary:
 
 ```bash
-bun unlink
+make uninstall
 ```
 
 ### Releasing
 
-Releases are automated via GitHub Actions. Use the release script:
+Releases are automated via GitHub Actions. Trigger a release using the Makefile task (which calls `scripts/release.sh`):
 
 ```bash
-./scripts/release.sh 0.2.0
+make release VERSION=0.3.0
 ```
 
 ### Error Messages
