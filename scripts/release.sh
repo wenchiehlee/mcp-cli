@@ -59,6 +59,10 @@ echo "Updating Cargo.toml..."
 sed -i.bak "s/^version = \"[^\"]*\"/version = \"$VERSION\"/" Cargo.toml
 rm -f Cargo.toml.bak
 
+# Update version in package.json
+echo "Updating package.json..."
+node -e "const fs=require('fs'); const p='package.json'; const pkg=JSON.parse(fs.readFileSync(p,'utf8')); pkg.version=process.argv[1]; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');" "$VERSION"
+
 # Force Cargo to update Cargo.lock version
 echo "Updating Cargo.lock..."
 cargo check
@@ -73,7 +77,7 @@ echo -e "${GREEN}Tests passed!${NC}"
 
 # Commit version bump
 echo "Committing version bump..."
-git add Cargo.toml Cargo.lock
+git add Cargo.toml Cargo.lock package.json
 git commit -m "Release v$VERSION"
 
 # Create tag
