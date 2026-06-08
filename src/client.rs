@@ -19,11 +19,13 @@ use tokio::sync::{oneshot, Mutex};
 // Stdio Client Implementation
 // ============================================================================
 
+type PendingRequests = Arc<Mutex<HashMap<u64, oneshot::Sender<Result<serde_json::Value, String>>>>>;
+
 #[derive(Clone)]
 pub struct StdioClient {
     server_name: String,
     stdin_tx: tokio::sync::mpsc::Sender<String>,
-    pending_requests: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<serde_json::Value, String>>>>>,
+    pending_requests: PendingRequests,
     next_id: Arc<AtomicU64>,
     child: Arc<Mutex<Option<Child>>>,
 }
@@ -69,7 +71,7 @@ impl StdioClient {
             server_connection_error(server_name, "Failed to open stderr")
         })?;
 
-        let pending_requests: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<serde_json::Value, String>>>>> =
+        let pending_requests: PendingRequests =
             Arc::new(Mutex::new(HashMap::new()));
 
         // Stderr forwarding task with prefix immediately

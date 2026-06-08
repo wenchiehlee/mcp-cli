@@ -276,6 +276,7 @@ fn parse_args() -> ParsedArgs {
     }
 }
 
+#[allow(clippy::print_literal)]
 fn print_help() {
     println!(
         "{}",

@@ -120,9 +120,9 @@ pub fn is_tool_allowed(tool_name: &str, config: &ServerConfig) -> bool {
     true
 }
 
-pub fn filter_tools<T: AsRef<str>>(tools: &[T], config: &ServerConfig) -> Vec<T>
+pub fn filter_tools<T>(tools: &[T], config: &ServerConfig) -> Vec<T>
 where
-    T: Clone,
+    T: AsRef<str> + Clone,
 {
     tools
         .iter()
