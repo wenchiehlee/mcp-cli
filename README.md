@@ -1,11 +1,12 @@
 # mcp-cli
 
-A lightweight, Rust-based CLI for interacting with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers.
+A lightweight Rust CLI and library for interacting with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers.
 
 ## Features
 
 - 🪶 **Lightweight** - Minimal dependencies, blazing fast startup, written in pure Rust
 - 📦 **Single Binary** - Compile to a single, fully-optimized standalone executable with zero external runtime dependencies via Cargo
+- 🧰 **Rust Library** - Use the same MCP client functionality from other Rust applications
 - 🔧 **Shell-Friendly** - JSON output for call, pipes with `jq`, chaining support
 - 🤖 **Agent-Optimized** - Designed for AI coding agents (Gemini CLI, Claude Code, etc.)
 - 🔌 **Universal** - Supports both stdio and HTTP MCP servers
@@ -83,6 +84,44 @@ mcp-cli [options] grep <pattern>              Search tools by glob pattern
 mcp-cli [options] call <server> <tool>        Call tool (reads JSON from stdin if no args)
 mcp-cli [options] call <server> <tool> <json> Call tool with JSON arguments
 ```
+
+## Rust Library
+
+Add the crate to another Rust project:
+
+```toml
+[dependencies]
+mcp-cli = { git = "https://github.com/doggy8088/mcp-cli" }
+```
+
+Use `McpClient` for the common workflow:
+
+```rust
+use mcp_cli::McpClient;
+
+#[tokio::main]
+async fn main() -> Result<(), mcp_cli::CliError> {
+    let client = McpClient::load(None)?;
+
+    for server in client.server_names() {
+        let tools = client.list_tools(&server).await?;
+        println!("{server}: {} tools", tools.len());
+    }
+
+    let result = client
+        .call_tool(
+            "filesystem",
+            "read_file",
+            serde_json::json!({ "path": "./README.md" }),
+        )
+        .await?;
+
+    println!("{}", mcp_cli::output::format_tool_result(&result));
+    Ok(())
+}
+```
+
+The crate also exposes lower-level modules such as `mcp_cli::client`, `mcp_cli::config`, `mcp_cli::errors`, and `mcp_cli::output` for callers that need direct control over connections or formatting.
 
 **Both formats work:** `info <server> <tool>` or `info <server>/<tool>`
 
