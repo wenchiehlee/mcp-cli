@@ -1,10 +1,10 @@
 use crate::config::{debug, get_config_hash, get_socket_dir, get_socket_path, ServerConfig};
+#[cfg(windows)]
+use crate::daemon::get_daemon_addr;
 use crate::daemon::{
     is_process_running, kill_process, read_pid_file, remove_pid_file, remove_socket_file,
     DaemonRequest, DaemonResponse,
 };
-#[cfg(windows)]
-use crate::daemon::get_daemon_addr;
 use crate::errors::CliError;
 use std::fs;
 use std::path::PathBuf;
