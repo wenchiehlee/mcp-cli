@@ -182,7 +182,7 @@ async fn spawn_daemon(server_name: &str, config: &ServerConfig) -> bool {
 
     // Spawn detached process
     let mut child = match tokio::process::Command::new(current_exe)
-        .args(&["--daemon", server_name, &config_json])
+        .args(["--daemon", server_name, &config_json])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null()) // Don't forward stderr to console for daemon

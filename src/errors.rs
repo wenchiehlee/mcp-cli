@@ -302,13 +302,7 @@ pub fn unknown_option_error(option: &str) -> CliError {
 
 pub fn missing_argument_error(command: &str, argument: &str) -> CliError {
     let suggestion = match command {
-        "call" => {
-            if argument.contains("server") {
-                "Use 'mcp-cli call <server> <tool> '{\"key\": \"value\"}''"
-            } else {
-                "Use 'mcp-cli call <server> <tool> '{\"key\": \"value\"}''"
-            }
-        }
+        "call" => "Use 'mcp-cli call <server> <tool> '{\"key\": \"value\"}''",
         "grep" => "Use 'mcp-cli grep \"*pattern*\"'",
         "-c/--config" => "Use 'mcp-cli -c /path/to/mcp_servers.json'",
         _ => "Run 'mcp-cli --help' for usage examples",
