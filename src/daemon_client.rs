@@ -3,11 +3,16 @@ use crate::daemon::{
     is_process_running, kill_process, read_pid_file, remove_pid_file, remove_socket_file,
     DaemonRequest, DaemonResponse,
 };
+#[cfg(windows)]
+use crate::daemon::get_daemon_addr;
 use crate::errors::CliError;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
+#[cfg(windows)]
+use tokio::net::TcpStream;
+#[cfg(unix)]
 use tokio::net::UnixStream;
 
 // ============================================================================
@@ -17,6 +22,7 @@ use tokio::net::UnixStream;
 pub struct DaemonConnection {
     pub server_name: String,
     pub socket_path: PathBuf,
+    pub config: ServerConfig,
 }
 
 fn generate_request_id() -> String {
@@ -26,10 +32,21 @@ fn generate_request_id() -> String {
 }
 
 async fn send_request(
+    server_name: &str,
+    config: &ServerConfig,
     socket_path: &std::path::Path,
     request: DaemonRequest,
 ) -> Result<DaemonResponse, CliError> {
+    #[cfg(unix)]
+    {
+        let _ = server_name;
+        let _ = config;
+    }
+
+    #[cfg(unix)]
     let connect_fut = UnixStream::connect(socket_path);
+    #[cfg(windows)]
+    let connect_fut = TcpStream::connect(get_daemon_addr(server_name, &get_config_hash(config)));
 
     let mut stream = tokio::select! {
         res = connect_fut => {
@@ -147,6 +164,7 @@ fn is_daemon_valid(server_name: &str, config: &ServerConfig) -> bool {
         return false;
     }
 
+    #[cfg(unix)]
     if !socket_path.exists() {
         debug(&format!(
             "[daemon-client] Socket missing for {}, cleaning up",
@@ -270,6 +288,8 @@ pub async fn get_daemon_connection(
 
     // Ping test
     match send_request(
+        server_name,
+        config,
         &socket_path,
         DaemonRequest {
             id: generate_request_id(),
@@ -302,6 +322,7 @@ pub async fn get_daemon_connection(
     Some(DaemonConnection {
         server_name: server_name.to_string(),
         socket_path,
+        config: config.clone(),
     })
 }
 
@@ -344,6 +365,8 @@ impl DaemonConnection {
 
     pub async fn list_tools(&self) -> Result<serde_json::Value, CliError> {
         let response = send_request(
+            &self.server_name,
+            &self.config,
             &self.socket_path,
             DaemonRequest {
                 id: generate_request_id(),
@@ -382,6 +405,8 @@ impl DaemonConnection {
         args: serde_json::Value,
     ) -> Result<serde_json::Value, CliError> {
         let response = send_request(
+            &self.server_name,
+            &self.config,
             &self.socket_path,
             DaemonRequest {
                 id: generate_request_id(),
@@ -416,6 +441,8 @@ impl DaemonConnection {
 
     pub async fn get_instructions(&self) -> Result<Option<String>, CliError> {
         let response = send_request(
+            &self.server_name,
+            &self.config,
             &self.socket_path,
             DaemonRequest {
                 id: generate_request_id(),
