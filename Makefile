@@ -27,6 +27,12 @@ install: build-release ## Install the compiled release binary to ~/.local/bin
 	@cp target/release/mcp-cli $(HOME)/.local/bin/mcp-cli
 	@echo "==> Installation complete! Make sure ~/.local/bin is in your PATH."
 
+.PHONY: uninstall
+uninstall: ## Remove the mcp-cli binary from ~/.local/bin
+	@echo "==> Uninstalling binary from ~/.local/bin..."
+	@rm -f $(HOME)/.local/bin/mcp-cli
+	@echo "==> Uninstallation complete!"
+
 .PHONY: run
 run: ## Run the application in debug mode
 	$(CARGO) run --
