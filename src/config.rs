@@ -251,7 +251,9 @@ pub fn get_config_hash(config: &ServerConfig) -> String {
 // ============================================================================
 
 fn is_strict_env_mode() -> bool {
-    let value = env::var("MCP_STRICT_ENV").unwrap_or_default().to_lowercase();
+    let value = env::var("MCP_STRICT_ENV")
+        .unwrap_or_default()
+        .to_lowercase();
     value != "false" && value != "0"
 }
 
@@ -301,9 +303,7 @@ fn substitute_env_vars(value: &str) -> Result<String, crate::errors::CliError> {
     Ok(result.into_owned())
 }
 
-fn substitute_value(
-    val: serde_json::Value,
-) -> Result<serde_json::Value, crate::errors::CliError> {
+fn substitute_value(val: serde_json::Value) -> Result<serde_json::Value, crate::errors::CliError> {
     match val {
         serde_json::Value::String(s) => {
             let replaced = substitute_env_vars(&s)?;
@@ -347,7 +347,9 @@ fn get_default_config_paths() -> Vec<PathBuf> {
     paths
 }
 
-pub fn load_config(explicit_path: Option<&str>) -> Result<McpServersConfig, crate::errors::CliError> {
+pub fn load_config(
+    explicit_path: Option<&str>,
+) -> Result<McpServersConfig, crate::errors::CliError> {
     let mut config_path: Option<PathBuf> = None;
 
     if let Some(path) = explicit_path {
@@ -380,9 +382,8 @@ pub fn load_config(explicit_path: Option<&str>) -> Result<McpServersConfig, crat
         .map_err(|e| config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string()))?;
 
     // Parse into standard JSON Value first to validate and substitute environment variables
-    let mut json_val: serde_json::Value = serde_json::from_str(&content).map_err(|e| {
-        config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string())
-    })?;
+    let mut json_val: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string()))?;
 
     // Validate top level schema has mcpServers object
     let mcp_servers_field = json_val.get("mcpServers");
@@ -394,9 +395,8 @@ pub fn load_config(explicit_path: Option<&str>) -> Result<McpServersConfig, crat
     json_val = substitute_value(json_val)?;
 
     // Deserialize into the struct
-    let config: McpServersConfig = serde_json::from_value(json_val).map_err(|e| {
-        config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string())
-    })?;
+    let config: McpServersConfig = serde_json::from_value(json_val)
+        .map_err(|e| config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string()))?;
 
     if config.mcp_servers.is_empty() {
         eprintln!("[mcp-cli] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.");
@@ -423,7 +423,9 @@ pub fn load_config(explicit_path: Option<&str>) -> Result<McpServersConfig, crat
                         error_type: "CONFIG_INVALID_SERVER".to_string(),
                         message: format!("Server \"{}\" has empty URL", name),
                         details: Some("url must be a non-empty string".to_string()),
-                        suggestion: Some("Provide a valid URL, e.g. \"https://example.com/mcp\"".to_string()),
+                        suggestion: Some(
+                            "Provide a valid URL, e.g. \"https://example.com/mcp\"".to_string(),
+                        ),
                     });
                 }
             }
@@ -441,7 +443,10 @@ pub fn get_server_config(
         Some(server) => Ok(server.clone()),
         None => {
             let available: Vec<String> = config.mcp_servers.keys().cloned().collect();
-            Err(crate::errors::server_not_found_error(server_name, &available))
+            Err(crate::errors::server_not_found_error(
+                server_name,
+                &available,
+            ))
         }
     }
 }
@@ -625,4 +630,3 @@ mod tests {
         let _ = std::fs::remove_file(file_path);
     }
 }
-

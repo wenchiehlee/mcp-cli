@@ -196,8 +196,7 @@ fn parse_args() -> ParsedArgs {
         let (server, tool) = parse_server_tool(remaining);
 
         if tool.is_none() {
-            if remaining[0].contains('/')
-                && remaining[0].split('/').nth(1).unwrap_or("").is_empty()
+            if remaining[0].contains('/') && remaining[0].split('/').nth(1).unwrap_or("").is_empty()
             {
                 let err = crate::errors::missing_argument_error("call", "tool");
                 eprintln!("{}", err);
@@ -324,7 +323,10 @@ Config File:
     2. ./mcp_servers.json (current directory)
     3. ~/.mcp_servers.json
     4. ~/.config/mcp/mcp_servers.json"#;
-    println!("{}", help_text.replace("VERSION", env!("CARGO_PKG_VERSION")));
+    println!(
+        "{}",
+        help_text.replace("VERSION", env!("CARGO_PKG_VERSION"))
+    );
 }
 
 #[tokio::main]

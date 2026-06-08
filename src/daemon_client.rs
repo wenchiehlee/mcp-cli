@@ -1,6 +1,4 @@
-use crate::config::{
-    debug, get_config_hash, get_socket_dir, get_socket_path, ServerConfig,
-};
+use crate::config::{debug, get_config_hash, get_socket_dir, get_socket_path, ServerConfig};
 use crate::daemon::{
     is_process_running, kill_process, read_pid_file, remove_pid_file, remove_socket_file,
     DaemonRequest, DaemonResponse,
@@ -105,13 +103,14 @@ async fn send_request(
         }
     }
 
-    let response: DaemonResponse = serde_json::from_slice(&buffer).map_err(|e| crate::errors::CliError {
-        code: crate::errors::ErrorCode::ServerError,
-        error_type: "DAEMON_RESPONSE_INVALID".to_string(),
-        message: format!("Daemon returned invalid JSON: {}", e),
-        details: Some(String::from_utf8_lossy(&buffer).to_string()),
-        suggestion: None,
-    })?;
+    let response: DaemonResponse =
+        serde_json::from_slice(&buffer).map_err(|e| crate::errors::CliError {
+            code: crate::errors::ErrorCode::ServerError,
+            error_type: "DAEMON_RESPONSE_INVALID".to_string(),
+            message: format!("Daemon returned invalid JSON: {}", e),
+            details: Some(String::from_utf8_lossy(&buffer).to_string()),
+            suggestion: None,
+        })?;
 
     Ok(response)
 }
@@ -162,7 +161,10 @@ fn is_daemon_valid(server_name: &str, config: &ServerConfig) -> bool {
 }
 
 async fn spawn_daemon(server_name: &str, config: &ServerConfig) -> bool {
-    debug(&format!("[daemon-client] Spawning daemon for {}", server_name));
+    debug(&format!(
+        "[daemon-client] Spawning daemon for {}",
+        server_name
+    ));
 
     let current_exe = match std::env::current_exe() {
         Ok(path) => path,
@@ -175,7 +177,10 @@ async fn spawn_daemon(server_name: &str, config: &ServerConfig) -> bool {
     let config_json = match serde_json::to_string(config) {
         Ok(json) => json,
         Err(e) => {
-            debug(&format!("[daemon-client] Failed to serialize config: {}", e));
+            debug(&format!(
+                "[daemon-client] Failed to serialize config: {}",
+                e
+            ));
             return false;
         }
     };

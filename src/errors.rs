@@ -67,10 +67,12 @@ pub fn config_search_error() -> CliError {
         error_type: "CONFIG_NOT_FOUND".to_string(),
         message: "No mcp_servers.json found in search paths".to_string(),
         details: Some(
-            "Searched: ./mcp_servers.json, ~/.mcp_servers.json, ~/.config/mcp/mcp_servers.json".to_string(),
+            "Searched: ./mcp_servers.json, ~/.mcp_servers.json, ~/.config/mcp/mcp_servers.json"
+                .to_string(),
         ),
         suggestion: Some(
-            "Create mcp_servers.json in current directory or use -c/--config to specify path".to_string(),
+            "Create mcp_servers.json in current directory or use -c/--config to specify path"
+                .to_string(),
         ),
     }
 }
@@ -139,10 +141,11 @@ pub fn server_connection_error(server_name: &str, cause: &str) -> CliError {
 
     if cause.contains("ENOENT") || cause.contains("not found") || cause.contains("No such file") {
         suggestion =
-            "Command not found. Install the MCP server: npx -y @modelcontextprotocol/server-<name>".to_string();
+            "Command not found. Install the MCP server: npx -y @modelcontextprotocol/server-<name>"
+                .to_string();
     } else if cause.contains("ECONNREFUSED") || cause.contains("refused") {
-        suggestion =
-            "Server refused connection. Check if the server is running and URL is correct".to_string();
+        suggestion = "Server refused connection. Check if the server is running and URL is correct"
+            .to_string();
     } else if cause.contains("ETIMEDOUT") || cause.contains("timeout") {
         suggestion =
             "Connection timed out. Check network connectivity and server availability".to_string();
@@ -171,12 +174,7 @@ pub fn tool_not_found_error(
     available_tools: Option<&[String]>,
 ) -> CliError {
     let details = available_tools.map(|tools| {
-        let tool_list = tools
-            .iter()
-            .take(5)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(", ");
+        let tool_list = tools.iter().take(5).cloned().collect::<Vec<_>>().join(", ");
         let more_count = if tools.len() > 5 {
             format!(" (+{} more)", tools.len() - 5)
         } else {
@@ -188,9 +186,15 @@ pub fn tool_not_found_error(
     CliError {
         code: ErrorCode::ClientError,
         error_type: "TOOL_NOT_FOUND".to_string(),
-        message: format!("Tool \"{}\" not found in server \"{}\"", tool_name, server_name),
+        message: format!(
+            "Tool \"{}\" not found in server \"{}\"",
+            tool_name, server_name
+        ),
         details,
-        suggestion: Some(format!("Run 'mcp-cli {}' to see all available tools", server_name)),
+        suggestion: Some(format!(
+            "Run 'mcp-cli {}' to see all available tools",
+            server_name
+        )),
     }
 }
 
@@ -282,12 +286,22 @@ pub fn unknown_option_error(option: &str) -> CliError {
     let option_clean = option_lower.trim_start_matches('-');
 
     let suggestion = match option_clean {
-        "server" | "s" => "Server is a positional argument. Use 'mcp-cli info <server>'".to_string(),
-        "tool" | "t" => "Tool is a positional argument. Use 'mcp-cli call <server> <tool>'".to_string(),
-        "args" | "arguments" | "a" | "input" => "Pass JSON directly: 'mcp-cli call <server> <tool> '{\"key\": \"value\"}''".to_string(),
+        "server" | "s" => {
+            "Server is a positional argument. Use 'mcp-cli info <server>'".to_string()
+        }
+        "tool" | "t" => {
+            "Tool is a positional argument. Use 'mcp-cli call <server> <tool>'".to_string()
+        }
+        "args" | "arguments" | "a" | "input" => {
+            "Pass JSON directly: 'mcp-cli call <server> <tool> '{\"key\": \"value\"}''".to_string()
+        }
         "pattern" | "p" | "search" | "query" => "Use 'mcp-cli grep \"*pattern*\"'".to_string(),
-        "call" | "run" | "exec" => "Use 'call' as a subcommand, not option: 'mcp-cli call <server> <tool>'".to_string(),
-        "info" | "list" | "get" => "Use 'info' as a subcommand, not option: 'mcp-cli info <server>'".to_string(),
+        "call" | "run" | "exec" => {
+            "Use 'call' as a subcommand, not option: 'mcp-cli call <server> <tool>'".to_string()
+        }
+        "info" | "list" | "get" => {
+            "Use 'info' as a subcommand, not option: 'mcp-cli info <server>'".to_string()
+        }
         _ => "Valid options: -c/--config, -j/--json, -d/--with-descriptions, -r/--raw".to_string(),
     };
 

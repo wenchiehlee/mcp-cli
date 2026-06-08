@@ -1,6 +1,5 @@
 use crate::config::{
-    debug, get_max_retries, get_retry_delay_ms,
-    get_timeout_ms, is_daemon_enabled, ServerConfig,
+    debug, get_max_retries, get_retry_delay_ms, get_timeout_ms, is_daemon_enabled, ServerConfig,
 };
 use crate::daemon_client::{cleanup_orphaned_daemons, get_daemon_connection, DaemonConnection};
 use crate::errors::{server_connection_error, tool_execution_error, CliError};
@@ -31,7 +30,10 @@ pub struct StdioClient {
 }
 
 impl StdioClient {
-    pub async fn connect(server_name: &str, config: &crate::config::StdioServerConfig) -> Result<Self, CliError> {
+    pub async fn connect(
+        server_name: &str,
+        config: &crate::config::StdioServerConfig,
+    ) -> Result<Self, CliError> {
         let mut cmd = Command::new(&config.command);
         if let Some(ref args) = config.args {
             cmd.args(args);
@@ -61,18 +63,20 @@ impl StdioClient {
             server_connection_error(server_name, &format!("Failed to spawn process: {}", e))
         })?;
 
-        let stdin = child.stdin.take().ok_or_else(|| {
-            server_connection_error(server_name, "Failed to open stdin")
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            server_connection_error(server_name, "Failed to open stdout")
-        })?;
-        let mut stderr = child.stderr.take().ok_or_else(|| {
-            server_connection_error(server_name, "Failed to open stderr")
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| server_connection_error(server_name, "Failed to open stdin"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| server_connection_error(server_name, "Failed to open stdout"))?;
+        let mut stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| server_connection_error(server_name, "Failed to open stderr"))?;
 
-        let pending_requests: PendingRequests =
-            Arc::new(Mutex::new(HashMap::new()));
+        let pending_requests: PendingRequests = Arc::new(Mutex::new(HashMap::new()));
 
         // Stderr forwarding task with prefix immediately
         let server_name_str = server_name.to_string();
@@ -128,10 +132,16 @@ impl StdioClient {
                             let mut reqs = pending_requests_reader.lock().await;
                             if let Some(tx) = reqs.remove(&id_u64) {
                                 if let Some(error) = val.get("error") {
-                                    let msg = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+                                    let msg = error
+                                        .get("message")
+                                        .and_then(|m| m.as_str())
+                                        .unwrap_or("Unknown error");
                                     let _ = tx.send(Err(msg.to_string()));
                                 } else {
-                                    let result_val = val.get("result").cloned().unwrap_or(serde_json::Value::Null);
+                                    let result_val = val
+                                        .get("result")
+                                        .cloned()
+                                        .unwrap_or(serde_json::Value::Null);
                                     let _ = tx.send(Ok(result_val));
                                 }
                             }
@@ -159,25 +169,45 @@ impl StdioClient {
 
         // Handshake: initialize
         let mut params = serde_json::Map::new();
-        params.insert("protocolVersion".to_string(), serde_json::json!("2024-11-05"));
+        params.insert(
+            "protocolVersion".to_string(),
+            serde_json::json!("2024-11-05"),
+        );
         params.insert("capabilities".to_string(), serde_json::json!({}));
         let mut client_info = serde_json::Map::new();
         client_info.insert("name".to_string(), serde_json::json!("mcp-cli"));
-        client_info.insert("version".to_string(), serde_json::json!(env!("CARGO_PKG_VERSION")));
-        params.insert("clientInfo".to_string(), serde_json::Value::Object(client_info));
+        client_info.insert(
+            "version".to_string(),
+            serde_json::json!(env!("CARGO_PKG_VERSION")),
+        );
+        params.insert(
+            "clientInfo".to_string(),
+            serde_json::Value::Object(client_info),
+        );
 
-        let response = client.request("initialize", serde_json::Value::Object(params)).await?;
-        
+        let response = client
+            .request("initialize", serde_json::Value::Object(params))
+            .await?;
+
         // Check protocol version
-        let _server_protocol_version = response.get("protocolVersion").and_then(|v| v.as_str()).unwrap_or("2024-11-05");
+        let _server_protocol_version = response
+            .get("protocolVersion")
+            .and_then(|v| v.as_str())
+            .unwrap_or("2024-11-05");
 
         // Send notifications/initialized
-        client.notify("notifications/initialized", serde_json::json!({})).await?;
+        client
+            .notify("notifications/initialized", serde_json::json!({}))
+            .await?;
 
         Ok(client)
     }
 
-    async fn request(&self, method: &str, params: serde_json::Value) -> Result<serde_json::Value, CliError> {
+    async fn request(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, CliError> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let mut req = serde_json::Map::new();
         req.insert("jsonrpc".to_string(), serde_json::json!("2.0"));
@@ -195,13 +225,19 @@ impl StdioClient {
         if self.stdin_tx.send(serialized).await.is_err() {
             let mut reqs = self.pending_requests.lock().await;
             reqs.remove(&id);
-            return Err(server_connection_error(&self.server_name, "Failed to send request to process stdin"));
+            return Err(server_connection_error(
+                &self.server_name,
+                "Failed to send request to process stdin",
+            ));
         }
 
         match rx.await {
             Ok(Ok(res)) => Ok(res),
             Ok(Err(err)) => Err(tool_execution_error(method, &self.server_name, &err)),
-            Err(_) => Err(server_connection_error(&self.server_name, "Stdio response receiver canceled")),
+            Err(_) => Err(server_connection_error(
+                &self.server_name,
+                "Stdio response receiver canceled",
+            )),
         }
     }
 
@@ -213,16 +249,26 @@ impl StdioClient {
 
         let serialized = serde_json::to_string(&req).unwrap();
         if self.stdin_tx.send(serialized).await.is_err() {
-            return Err(server_connection_error(&self.server_name, "Failed to send notification to process stdin"));
+            return Err(server_connection_error(
+                &self.server_name,
+                "Failed to send notification to process stdin",
+            ));
         }
         Ok(())
     }
 
     pub async fn list_tools(&self) -> Result<Vec<ToolInfo>, CliError> {
         let response = self.request("tools/list", serde_json::json!({})).await?;
-        let tools_val = response.get("tools").and_then(|t| t.as_array()).ok_or_else(|| {
-            tool_execution_error("tools/list", &self.server_name, "Invalid tools response format")
-        })?;
+        let tools_val = response
+            .get("tools")
+            .and_then(|t| t.as_array())
+            .ok_or_else(|| {
+                tool_execution_error(
+                    "tools/list",
+                    &self.server_name,
+                    "Invalid tools response format",
+                )
+            })?;
 
         let mut tools = Vec::new();
         for tool_val in tools_val {
@@ -233,19 +279,27 @@ impl StdioClient {
         Ok(tools)
     }
 
-    pub async fn call_tool(&self, tool_name: &str, args: serde_json::Value) -> Result<serde_json::Value, CliError> {
+    pub async fn call_tool(
+        &self,
+        tool_name: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, CliError> {
         let mut params = serde_json::Map::new();
         params.insert("name".to_string(), serde_json::json!(tool_name));
         params.insert("arguments".to_string(), args);
 
-        self.request("tools/call", serde_json::Value::Object(params)).await
+        self.request("tools/call", serde_json::Value::Object(params))
+            .await
     }
 
     pub async fn get_instructions(&self) -> Result<Option<String>, CliError> {
         // Safe to call getInstructions, return None if not supported or not present
         match self.request("prompt/get", serde_json::json!({})).await {
             Ok(res) => {
-                let inst = res.get("instructions").and_then(|i| i.as_str()).map(|s| s.to_string());
+                let inst = res
+                    .get("instructions")
+                    .and_then(|i| i.as_str())
+                    .map(|s| s.to_string());
                 Ok(inst)
             }
             Err(_) => Ok(None),
@@ -276,7 +330,10 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
-    pub async fn connect(server_name: &str, config: &crate::config::HttpServerConfig) -> Result<Self, CliError> {
+    pub async fn connect(
+        server_name: &str,
+        config: &crate::config::HttpServerConfig,
+    ) -> Result<Self, CliError> {
         let client = reqwest::Client::new();
         let mut headers = HashMap::new();
         if let Some(ref h) = config.headers {
@@ -296,22 +353,39 @@ impl HttpClient {
 
         // Step 1: Handshake
         let mut params = serde_json::Map::new();
-        params.insert("protocolVersion".to_string(), serde_json::json!("2024-11-05"));
+        params.insert(
+            "protocolVersion".to_string(),
+            serde_json::json!("2024-11-05"),
+        );
         params.insert("capabilities".to_string(), serde_json::json!({}));
         let mut client_info = serde_json::Map::new();
         client_info.insert("name".to_string(), serde_json::json!("mcp-cli"));
-        client_info.insert("version".to_string(), serde_json::json!(env!("CARGO_PKG_VERSION")));
-        params.insert("clientInfo".to_string(), serde_json::Value::Object(client_info));
+        client_info.insert(
+            "version".to_string(),
+            serde_json::json!(env!("CARGO_PKG_VERSION")),
+        );
+        params.insert(
+            "clientInfo".to_string(),
+            serde_json::Value::Object(client_info),
+        );
 
-        http_client.request("initialize", serde_json::Value::Object(params)).await?;
+        http_client
+            .request("initialize", serde_json::Value::Object(params))
+            .await?;
 
         // initialized notification
-        http_client.notify("notifications/initialized", serde_json::json!({})).await?;
+        http_client
+            .notify("notifications/initialized", serde_json::json!({}))
+            .await?;
 
         Ok(http_client)
     }
 
-    async fn request(&self, method: &str, params: serde_json::Value) -> Result<serde_json::Value, CliError> {
+    async fn request(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, CliError> {
         let mut req = serde_json::Map::new();
         req.insert("jsonrpc".to_string(), serde_json::json!("2.0"));
         req.insert("id".to_string(), serde_json::json!(1)); // Stateless requests can reuse ID 1
@@ -319,7 +393,7 @@ impl HttpClient {
         req.insert("params".to_string(), params);
 
         let mut builder = self.client.post(&self.url);
-        
+
         // Set standard headers
         builder = builder.header("content-type", "application/json");
         builder = builder.header("accept", "application/json, text/event-stream");
@@ -374,7 +448,10 @@ impl HttpClient {
                         let data_json = line.trim_start_matches("data:").trim();
                         if let Ok(val) = serde_json::from_str::<serde_json::Value>(data_json) {
                             if let Some(error) = val.get("error") {
-                                let msg = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+                                let msg = error
+                                    .get("message")
+                                    .and_then(|m| m.as_str())
+                                    .unwrap_or("Unknown error");
                                 return Err(tool_execution_error(method, &self.server_name, msg));
                             } else if let Some(result) = val.get("result") {
                                 return Ok(result.clone());
@@ -383,7 +460,10 @@ impl HttpClient {
                     }
                 }
             }
-            Err(server_connection_error(&self.server_name, "SSE stream ended without response"))
+            Err(server_connection_error(
+                &self.server_name,
+                "SSE stream ended without response",
+            ))
         } else {
             // Application/json response
             let val = response.json::<serde_json::Value>().await.map_err(|e| {
@@ -391,10 +471,16 @@ impl HttpClient {
             })?;
 
             if let Some(error) = val.get("error") {
-                let msg = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+                let msg = error
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("Unknown error");
                 Err(tool_execution_error(method, &self.server_name, msg))
             } else {
-                Ok(val.get("result").cloned().unwrap_or(serde_json::Value::Null))
+                Ok(val
+                    .get("result")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null))
             }
         }
     }
@@ -421,11 +507,16 @@ impl HttpClient {
         }
 
         let response = builder.json(&req).send().await.map_err(|e| {
-            server_connection_error(&self.server_name, &format!("HTTP notification failed: {}", e))
+            server_connection_error(
+                &self.server_name,
+                &format!("HTTP notification failed: {}", e),
+            )
         })?;
 
         // 202 Accepted triggers GET stream connection
-        if response.status() == reqwest::StatusCode::ACCEPTED && method == "notifications/initialized" {
+        if response.status() == reqwest::StatusCode::ACCEPTED
+            && method == "notifications/initialized"
+        {
             // Start a separate background stream
             let client = self.client.clone();
             let url = self.url.clone();
@@ -455,7 +546,10 @@ impl HttpClient {
                         }
                     }
                 }
-                debug(&format!("SSE GET stream ended for http server {}", server_name_clone));
+                debug(&format!(
+                    "SSE GET stream ended for http server {}",
+                    server_name_clone
+                ));
             });
         }
         Ok(())
@@ -463,9 +557,16 @@ impl HttpClient {
 
     pub async fn list_tools(&self) -> Result<Vec<ToolInfo>, CliError> {
         let response = self.request("tools/list", serde_json::json!({})).await?;
-        let tools_val = response.get("tools").and_then(|t| t.as_array()).ok_or_else(|| {
-            tool_execution_error("tools/list", &self.server_name, "Invalid tools response format")
-        })?;
+        let tools_val = response
+            .get("tools")
+            .and_then(|t| t.as_array())
+            .ok_or_else(|| {
+                tool_execution_error(
+                    "tools/list",
+                    &self.server_name,
+                    "Invalid tools response format",
+                )
+            })?;
 
         let mut tools = Vec::new();
         for tool_val in tools_val {
@@ -476,18 +577,26 @@ impl HttpClient {
         Ok(tools)
     }
 
-    pub async fn call_tool(&self, tool_name: &str, args: serde_json::Value) -> Result<serde_json::Value, CliError> {
+    pub async fn call_tool(
+        &self,
+        tool_name: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, CliError> {
         let mut params = serde_json::Map::new();
         params.insert("name".to_string(), serde_json::json!(tool_name));
         params.insert("arguments".to_string(), args);
 
-        self.request("tools/call", serde_json::Value::Object(params)).await
+        self.request("tools/call", serde_json::Value::Object(params))
+            .await
     }
 
     pub async fn get_instructions(&self) -> Result<Option<String>, CliError> {
         match self.request("prompt/get", serde_json::json!({})).await {
             Ok(res) => {
-                let inst = res.get("instructions").and_then(|i| i.as_str()).map(|s| s.to_string());
+                let inst = res
+                    .get("instructions")
+                    .and_then(|i| i.as_str())
+                    .map(|s| s.to_string());
                 Ok(inst)
             }
             Err(_) => Ok(None),
@@ -524,7 +633,11 @@ impl McpConnection {
         }
     }
 
-    pub async fn call_tool(&self, tool_name: &str, args: serde_json::Value) -> Result<serde_json::Value, CliError> {
+    pub async fn call_tool(
+        &self,
+        tool_name: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, CliError> {
         match self {
             McpConnection::Stdio(c) => c.call_tool(tool_name, args).await,
             McpConnection::Http(c) => c.call_tool(tool_name, args).await,
@@ -592,7 +705,10 @@ where
     for attempt in 0..=max_retries {
         let elapsed = start_time.elapsed().as_millis() as u64;
         if elapsed >= total_budget_ms {
-            debug(&format!("{}: timeout budget exhausted after {}ms", op_name, elapsed));
+            debug(&format!(
+                "{}: timeout budget exhausted after {}ms",
+                op_name, elapsed
+            ));
             break;
         }
 
@@ -600,19 +716,28 @@ where
             Ok(res) => return Ok(res),
             Err(e) => {
                 let is_transient = is_transient_error(&e.to_string());
-                let remaining_budget = total_budget_ms.saturating_sub(start_time.elapsed().as_millis() as u64);
+                let remaining_budget =
+                    total_budget_ms.saturating_sub(start_time.elapsed().as_millis() as u64);
                 let should_retry = attempt < max_retries && is_transient && remaining_budget > 1000;
 
                 if should_retry {
                     let expo_delay = base_delay * 2_u64.pow(attempt);
                     let capped_delay = std::cmp::min(expo_delay, 10000);
                     // Jitter (+-25%)
-                    let jitter = capped_delay as f64 * 0.25 * (rand::thread_rng().gen_range(0.0..2.0) - 1.0);
-                    let final_delay = std::cmp::min((capped_delay as f64 + jitter).round() as u64, remaining_budget.saturating_sub(1000));
+                    let jitter =
+                        capped_delay as f64 * 0.25 * (rand::thread_rng().gen_range(0.0..2.0) - 1.0);
+                    let final_delay = std::cmp::min(
+                        (capped_delay as f64 + jitter).round() as u64,
+                        remaining_budget.saturating_sub(1000),
+                    );
 
                     debug(&format!(
                         "{} failed (attempt {}/{}): {}. Retrying in {}ms...",
-                        op_name, attempt + 1, max_retries + 1, e.message, final_delay
+                        op_name,
+                        attempt + 1,
+                        max_retries + 1,
+                        e.message,
+                        final_delay
                     ));
                     tokio::time::sleep(Duration::from_millis(final_delay)).await;
                 } else {
@@ -622,14 +747,20 @@ where
         }
     }
 
-    Err(server_connection_error(op_name, "Max retry attempts or timeout budget exceeded"))
+    Err(server_connection_error(
+        op_name,
+        "Max retry attempts or timeout budget exceeded",
+    ))
 }
 
 // ============================================================================
 // Unified Get Connection
 // ============================================================================
 
-pub async fn get_connection(server_name: &str, config: &ServerConfig) -> Result<McpConnection, CliError> {
+pub async fn get_connection(
+    server_name: &str,
+    config: &ServerConfig,
+) -> Result<McpConnection, CliError> {
     cleanup_orphaned_daemons().await;
 
     if is_daemon_enabled() {
@@ -650,11 +781,19 @@ pub async fn get_connection(server_name: &str, config: &ServerConfig) -> Result<
     debug(&format!("Using direct connection for {}", server_name));
     match config {
         ServerConfig::Stdio(sc) => {
-            let client = with_retry(|| StdioClient::connect(server_name, sc), &format!("connect to {}", server_name)).await?;
+            let client = with_retry(
+                || StdioClient::connect(server_name, sc),
+                &format!("connect to {}", server_name),
+            )
+            .await?;
             Ok(McpConnection::Stdio(client))
         }
         ServerConfig::Http(hc) => {
-            let client = with_retry(|| HttpClient::connect(server_name, hc), &format!("connect to {}", server_name)).await?;
+            let client = with_retry(
+                || HttpClient::connect(server_name, hc),
+                &format!("connect to {}", server_name),
+            )
+            .await?;
             Ok(McpConnection::Http(client))
         }
     }
