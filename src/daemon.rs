@@ -215,6 +215,7 @@ async fn handle_request(
 // ============================================================================
 
 pub async fn run_daemon(server_name: &str, config: ServerConfig) -> Result<(), CliError> {
+    #[cfg(unix)]
     let socket_path = get_socket_path(server_name);
     let config_hash = get_config_hash(&config);
     let timeout_ms = get_daemon_timeout_ms();

@@ -133,6 +133,7 @@ async fn send_request(
 }
 
 fn is_daemon_valid(server_name: &str, config: &ServerConfig) -> bool {
+    #[cfg(unix)]
     let socket_path = get_socket_path(server_name);
     let pid_info = read_pid_file(server_name);
 

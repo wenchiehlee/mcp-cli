@@ -31,7 +31,7 @@ jobs:
             os: ubuntu-latest
             suffix: linux-arm64
           - target: aarch64-pc-windows-msvc
-            os: windows-latest
+            os: windows-11-arm
             suffix: win-arm64
           - target: x86_64-apple-darwin
             os: macos-latest
