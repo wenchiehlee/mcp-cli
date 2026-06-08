@@ -42,6 +42,10 @@ async fn send_request(
         let _ = server_name;
         let _ = config;
     }
+    #[cfg(windows)]
+    {
+        let _ = socket_path;
+    }
 
     #[cfg(unix)]
     let connect_fut = UnixStream::connect(socket_path);
