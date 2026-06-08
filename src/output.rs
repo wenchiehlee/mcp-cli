@@ -113,7 +113,11 @@ pub fn format_server_details(
 ) -> String {
     let mut lines = Vec::new();
 
-    lines.push(format!("{}: {}", color("Server", BOLD), color(server_name, CYAN)));
+    lines.push(format!(
+        "{}: {}",
+        color("Server", BOLD),
+        color(server_name, CYAN)
+    ));
 
     match config {
         ServerConfig::Http(hc) => {
@@ -144,7 +148,10 @@ pub fn format_server_details(
     }
 
     lines.push(String::new());
-    lines.push(format!("{}:", color(&format!("Tools ({})", tools.len()), BOLD)));
+    lines.push(format!(
+        "{}:",
+        color(&format!("Tools ({})", tools.len()), BOLD)
+    ));
 
     for tool in tools {
         lines.push(format!("  {}", color(&tool.name, GREEN)));
@@ -174,10 +181,7 @@ pub fn format_server_details(
                     } else {
                         "optional"
                     };
-                    let ty = prop
-                        .get("type")
-                        .and_then(|t| t.as_str())
-                        .unwrap_or("any");
+                    let ty = prop.get("type").and_then(|t| t.as_str()).unwrap_or("any");
                     let desc = if with_descriptions {
                         prop.get("description")
                             .and_then(|d| d.as_str())
@@ -186,10 +190,7 @@ pub fn format_server_details(
                     } else {
                         String::new()
                     };
-                    lines.push(format!(
-                        "      • {} ({}, {}){}",
-                        name, ty, required, desc
-                    ));
+                    lines.push(format!("      • {} ({}, {}){}", name, ty, required, desc));
                 }
             }
         }
@@ -202,8 +203,16 @@ pub fn format_server_details(
 pub fn format_tool_schema(server_name: &str, tool: &ToolInfo) -> String {
     let mut lines = Vec::new();
 
-    lines.push(format!("{}: {}", color("Tool", BOLD), color(&tool.name, GREEN)));
-    lines.push(format!("{}: {}", color("Server", BOLD), color(server_name, CYAN)));
+    lines.push(format!(
+        "{}: {}",
+        color("Tool", BOLD),
+        color(&tool.name, GREEN)
+    ));
+    lines.push(format!(
+        "{}: {}",
+        color("Server", BOLD),
+        color(server_name, CYAN)
+    ));
     lines.push(String::new());
 
     if let Some(ref desc) = tool.description {

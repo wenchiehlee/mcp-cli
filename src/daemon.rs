@@ -222,8 +222,11 @@ pub async fn run_daemon(server_name: &str, config: ServerConfig) -> Result<(), C
     remove_socket_file(server_name);
 
     // 3. Connect to MCP server
-    debug(&format!("[daemon:{}] Connecting to MCP server...", server_name));
-    
+    debug(&format!(
+        "[daemon:{}] Connecting to MCP server...",
+        server_name
+    ));
+
     // Direct connection without daemon caching
     let mcp_conn = match &config {
         ServerConfig::Stdio(sc) => {
@@ -238,14 +241,12 @@ pub async fn run_daemon(server_name: &str, config: ServerConfig) -> Result<(), C
     debug(&format!("[daemon:{}] Connected to MCP server", server_name));
 
     // 4. Start Unix Listener
-    let listener = UnixListener::bind(&socket_path).map_err(|e| {
-        crate::errors::CliError {
-            code: ErrorCode::ClientError,
-            error_type: "DAEMON_BIND_FAILED".to_string(),
-            message: format!("Failed to bind Unix socket: {}", e),
-            details: None,
-            suggestion: Some("Check socket directory permissions".to_string()),
-        }
+    let listener = UnixListener::bind(&socket_path).map_err(|e| crate::errors::CliError {
+        code: ErrorCode::ClientError,
+        error_type: "DAEMON_BIND_FAILED".to_string(),
+        message: format!("Failed to bind Unix socket: {}", e),
+        details: None,
+        suggestion: Some("Check socket directory permissions".to_string()),
     })?;
 
     // 5. Write PID File
@@ -273,12 +274,13 @@ pub async fn run_daemon(server_name: &str, config: ServerConfig) -> Result<(), C
 
                     tokio::spawn(async move {
                         let _ = act_tx.send(()).await; // Signal activity to reset idle timer
-                        
+
                         let mut buffer = vec![0u8; 65536];
                         match stream.read(&mut buffer).await {
                             Ok(n) => {
                                 if n > 0 {
-                                    let response = handle_request(&buffer[..n], &mcp_conn_ref, &sht_tx).await;
+                                    let response =
+                                        handle_request(&buffer[..n], &mcp_conn_ref, &sht_tx).await;
                                     if let Ok(serialized) = serde_json::to_string(&response) {
                                         let _ = stream.write_all(serialized.as_bytes()).await;
                                         let _ = stream.write_all(b"\n").await;

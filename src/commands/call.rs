@@ -59,9 +59,8 @@ async fn parse_args(args_string: Option<&str>) -> Result<serde_json::Value, CliE
         return Ok(serde_json::json!({}));
     }
 
-    serde_json::from_str(&json_string).map_err(|e| {
-        crate::errors::invalid_json_args_error(&json_string, Some(&e.to_string()))
-    })
+    serde_json::from_str(&json_string)
+        .map_err(|e| crate::errors::invalid_json_args_error(&json_string, Some(&e.to_string())))
 }
 
 pub async fn call_command(options: CallOptions) -> Result<(), CliError> {
@@ -86,12 +85,7 @@ pub async fn call_command(options: CallOptions) -> Result<(), CliError> {
         Err(error) => {
             let mut available_tools = None;
             if let Ok(tools) = connection.list_tools().await {
-                available_tools = Some(
-                    tools
-                        .into_iter()
-                        .map(|t| t.name)
-                        .collect::<Vec<String>>(),
-                );
+                available_tools = Some(tools.into_iter().map(|t| t.name).collect::<Vec<String>>());
             }
 
             let _ = connection.close().await;

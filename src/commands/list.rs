@@ -65,7 +65,10 @@ async fn fetch_server_tools(
             }
         }
         Err(e) => {
-            debug(&format!("{}: connection failed - {}", server_name, e.message));
+            debug(&format!(
+                "{}: connection failed - {}",
+                server_name, e.message
+            ));
             ServerWithTools {
                 name: server_name.to_string(),
                 tools: Vec::new(),

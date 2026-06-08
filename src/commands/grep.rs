@@ -72,42 +72,43 @@ async fn search_server_tools(
     };
 
     match crate::client::get_connection(server_name, &server_config).await {
-        Ok(connection) => {
-            match connection.list_tools().await {
-                Ok(tools) => {
-                    let mut results = Vec::new();
-                    for tool in tools {
-                        if pattern.is_match(&tool.name) {
-                            results.push(SearchResult {
-                                server: server_name.to_string(),
-                                tool,
-                            });
-                        }
-                    }
-                    let _ = connection.close().await;
-                    debug(&format!("{}: found {} matches", server_name, results.len()));
-                    ServerSearchResult {
-                        server_name: server_name.to_string(),
-                        results,
-                        error: None,
+        Ok(connection) => match connection.list_tools().await {
+            Ok(tools) => {
+                let mut results = Vec::new();
+                for tool in tools {
+                    if pattern.is_match(&tool.name) {
+                        results.push(SearchResult {
+                            server: server_name.to_string(),
+                            tool,
+                        });
                     }
                 }
-                Err(e) => {
-                    let _ = connection.close().await;
-                    debug(&format!(
-                        "{}: tools listing failed - {}",
-                        server_name, e.message
-                    ));
-                    ServerSearchResult {
-                        server_name: server_name.to_string(),
-                        results: Vec::new(),
-                        error: Some(e.message),
-                    }
+                let _ = connection.close().await;
+                debug(&format!("{}: found {} matches", server_name, results.len()));
+                ServerSearchResult {
+                    server_name: server_name.to_string(),
+                    results,
+                    error: None,
                 }
             }
-        }
+            Err(e) => {
+                let _ = connection.close().await;
+                debug(&format!(
+                    "{}: tools listing failed - {}",
+                    server_name, e.message
+                ));
+                ServerSearchResult {
+                    server_name: server_name.to_string(),
+                    results: Vec::new(),
+                    error: Some(e.message),
+                }
+            }
+        },
         Err(e) => {
-            debug(&format!("{}: connection failed - {}", server_name, e.message));
+            debug(&format!(
+                "{}: connection failed - {}",
+                server_name, e.message
+            ));
             ServerSearchResult {
                 server_name: server_name.to_string(),
                 results: Vec::new(),
