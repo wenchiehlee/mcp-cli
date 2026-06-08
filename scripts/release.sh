@@ -95,4 +95,3 @@ echo "  3. Create the GitHub release"
 echo ""
 echo "Monitor the release at:"
 echo "  https://github.com/doggy8088/mcp-cli/actions"
-EOF
