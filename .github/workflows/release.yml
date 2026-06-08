@@ -11,57 +11,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      
-      - name: Type check
-        run: bun run typecheck
-      
-      - name: Lint
-        run: bun run lint
-      
-      - name: Run unit tests
-        run: bun test tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts
-      
-      - name: Run integration tests
-        run: bun test --timeout 60000 tests/integration/
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Run tests
+        run: cargo test --all-features
 
   build:
     name: Build binaries
     needs: test
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            suffix: linux-x64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            suffix: darwin-x64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            suffix: darwin-arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: oven-sh/setup-bun@v2
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          bun-version: latest
-      
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      
-      - name: Build Linux x64
-        run: bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile dist/mcp-cli-linux-x64
-      
-      - name: Build macOS x64
-        run: bun build --compile --minify --target=bun-darwin-x64 src/index.ts --outfile dist/mcp-cli-darwin-x64
-      
-      - name: Build macOS ARM64
-        run: bun build --compile --minify --target=bun-darwin-arm64 src/index.ts --outfile dist/mcp-cli-darwin-arm64
-      
-      - name: Upload artifacts
+          target: ${{ matrix.target }}
+
+      - name: Build binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare asset
+        run: |
+          mkdir -p dist
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp target/${{ matrix.target }}/release/mcp-cli.exe dist/mcp-cli-${{ matrix.suffix }}.exe
+          else
+            cp target/${{ matrix.target }}/release/mcp-cli dist/mcp-cli-${{ matrix.suffix }}
+          fi
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binaries
+          name: binary-${{ matrix.suffix }}
           path: dist/
 
   release:
@@ -72,22 +68,23 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: binaries
-          path: dist/
-      
-      - name: Generate checksums
+          path: dist-raw
+
+      - name: Flatten artifacts & Generate checksums
         run: |
+          mkdir -p dist
+          find dist-raw -type f -exec cp {} dist/ \;
           cd dist
           sha256sum * > checksums.txt
-      
+
       - name: Get version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
