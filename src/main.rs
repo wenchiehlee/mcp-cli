@@ -278,9 +278,7 @@ fn parse_args() -> ParsedArgs {
 
 #[allow(clippy::print_literal)]
 fn print_help() {
-    println!(
-        "{}",
-        r#"mcp-cli v0.3.0 - A lightweight CLI for MCP servers
+    let help_text = r#"mcp-cli vVERSION - A lightweight CLI for MCP servers
 
 Usage:
   mcp-cli [options]                              List all servers and tools
@@ -325,8 +323,8 @@ Config File:
     1. Path specified by MCP_CONFIG_PATH or -c/--config
     2. ./mcp_servers.json (current directory)
     3. ~/.mcp_servers.json
-    4. ~/.config/mcp/mcp_servers.json"#
-    );
+    4. ~/.config/mcp/mcp_servers.json"#;
+    println!("{}", help_text.replace("VERSION", env!("CARGO_PKG_VERSION")));
 }
 
 #[tokio::main]
@@ -357,7 +355,7 @@ async fn main() {
             Ok(())
         }
         "version" => {
-            println!("mcp-cli v0.3.0");
+            println!("mcp-cli v{}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
         "list" => {
