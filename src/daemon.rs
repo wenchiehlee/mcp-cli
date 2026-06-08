@@ -4,9 +4,14 @@ use crate::config::{
 };
 use crate::errors::{CliError, ErrorCode};
 use std::fs;
+#[cfg(windows)]
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+#[cfg(windows)]
+use tokio::net::TcpListener;
+#[cfg(unix)]
 use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 
@@ -99,26 +104,33 @@ pub fn remove_socket_file(server_name: &str) {
     let _ = fs::remove_file(socket_path);
 }
 
-pub fn is_process_running(pid: i32) -> bool {
-    #[cfg(unix)]
-    {
-        unsafe { libc::kill(pid, 0) == 0 }
-    }
-    #[cfg(not(unix))]
-    {
-        false
-    }
+#[cfg(windows)]
+pub fn get_daemon_addr(server_name: &str, config_hash: &str) -> String {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    server_name.hash(&mut hasher);
+    config_hash.hash(&mut hasher);
+    let port = 40000 + (hasher.finish() % 20000);
+    format!("127.0.0.1:{}", port)
 }
 
+#[cfg(unix)]
+pub fn is_process_running(pid: i32) -> bool {
+    unsafe { libc::kill(pid, 0) == 0 }
+}
+
+#[cfg(not(unix))]
+pub fn is_process_running(_pid: i32) -> bool {
+    true
+}
+
+#[cfg(unix)]
 pub fn kill_process(pid: i32) -> bool {
-    #[cfg(unix)]
-    {
-        unsafe { libc::kill(pid, libc::SIGTERM) == 0 }
-    }
-    #[cfg(not(unix))]
-    {
-        false
-    }
+    unsafe { libc::kill(pid, libc::SIGTERM) == 0 }
+}
+
+#[cfg(not(unix))]
+pub fn kill_process(_pid: i32) -> bool {
+    false
 }
 
 // ============================================================================
@@ -240,7 +252,8 @@ pub async fn run_daemon(server_name: &str, config: ServerConfig) -> Result<(), C
     };
     debug(&format!("[daemon:{}] Connected to MCP server", server_name));
 
-    // 4. Start Unix Listener
+    // 4. Start daemon listener
+    #[cfg(unix)]
     let listener = UnixListener::bind(&socket_path).map_err(|e| crate::errors::CliError {
         code: ErrorCode::ClientError,
         error_type: "DAEMON_BIND_FAILED".to_string(),
@@ -248,6 +261,17 @@ pub async fn run_daemon(server_name: &str, config: ServerConfig) -> Result<(), C
         details: None,
         suggestion: Some("Check socket directory permissions".to_string()),
     })?;
+
+    #[cfg(windows)]
+    let listener = TcpListener::bind(get_daemon_addr(server_name, &config_hash))
+        .await
+        .map_err(|e| crate::errors::CliError {
+            code: ErrorCode::ClientError,
+            error_type: "DAEMON_BIND_FAILED".to_string(),
+            message: format!("Failed to bind daemon TCP listener: {}", e),
+            details: None,
+            suggestion: Some("Check whether the daemon port is already in use".to_string()),
+        })?;
 
     // 5. Write PID File
     write_pid_file(server_name, &config_hash);
