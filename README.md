@@ -632,6 +632,11 @@ Error [INVALID_JSON_ARGUMENTS]: Invalid JSON in tool arguments
   Suggestion: Arguments must be valid JSON. Use single quotes: '{"key": "value"}'
 ```
 
+## Credits
+
+- **[Philipp Schmid](https://github.com/philschmid)** - Creator of the original, excellent [Bun/TypeScript mcp-cli](https://github.com/philschmid/mcp-cli) project.
+- **[Antigravity](https://github.com/google-deepmind)** - Re-engineered and fully rewrote the codebase into this highly optimized, zero-dependency pure Rust CLI.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
