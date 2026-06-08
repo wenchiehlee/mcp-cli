@@ -21,7 +21,7 @@ A lightweight, Rust-based CLI for interacting with [MCP (Model Context Protocol)
 ### 1. Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/v1.0.0/install.sh | bash
 ```
 
 or 

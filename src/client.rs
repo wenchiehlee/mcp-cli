@@ -163,7 +163,7 @@ impl StdioClient {
         params.insert("capabilities".to_string(), serde_json::json!({}));
         let mut client_info = serde_json::Map::new();
         client_info.insert("name".to_string(), serde_json::json!("mcp-cli"));
-        client_info.insert("version".to_string(), serde_json::json!("0.3.0"));
+        client_info.insert("version".to_string(), serde_json::json!(env!("CARGO_PKG_VERSION")));
         params.insert("clientInfo".to_string(), serde_json::Value::Object(client_info));
 
         let response = client.request("initialize", serde_json::Value::Object(params)).await?;
@@ -300,7 +300,7 @@ impl HttpClient {
         params.insert("capabilities".to_string(), serde_json::json!({}));
         let mut client_info = serde_json::Map::new();
         client_info.insert("name".to_string(), serde_json::json!("mcp-cli"));
-        client_info.insert("version".to_string(), serde_json::json!("0.3.0"));
+        client_info.insert("version".to_string(), serde_json::json!(env!("CARGO_PKG_VERSION")));
         params.insert("clientInfo".to_string(), serde_json::Value::Object(client_info));
 
         http_client.request("initialize", serde_json::Value::Object(params)).await?;
