@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { filterTools, isToolAllowed } from '../src/config.js';
+import { filterTools, isToolAllowed } from '../src-ts/config.js';
 
 describe('Tool Filtering', () => {
   const sampleTools = [

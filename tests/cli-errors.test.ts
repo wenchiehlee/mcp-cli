@@ -15,9 +15,10 @@ describe('CLI Error Handling Tests', () => {
   async function runCli(
     args: string[]
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const configPath = join(import.meta.dir, '..', 'mcp_servers.json');
     try {
       // Disable daemon for tests for deterministic behavior
-      const result = await $`MCP_NO_DAEMON=1 bun run ${cliPath} ${args}`.nothrow();
+      const result = await $`MCP_NO_DAEMON=1 MCP_CONFIG_PATH=${configPath} bun run ${cliPath} ${args}`.nothrow();
       return {
         stdout: result.stdout.toString(),
         stderr: result.stderr.toString(),

@@ -12,7 +12,7 @@ import {
   listServerNames,
   isHttpServer,
   isStdioServer,
-} from '../src/config';
+} from '../src-ts/config';
 
 describe('config', () => {
   let tempDir: string;

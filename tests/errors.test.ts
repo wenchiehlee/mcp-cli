@@ -21,7 +21,7 @@ import {
   unknownSubcommandError,
   tooManyArgumentsError,
   ErrorCode,
-} from '../src/errors';
+} from '../src-ts/errors';
 
 describe('errors', () => {
   describe('formatCliError', () => {

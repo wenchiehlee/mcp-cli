@@ -10,12 +10,12 @@ import {
   isStdioServer,
   getMaxRetries,
   getRetryDelayMs,
-} from '../src/config';
+} from '../src-ts/config';
 import {
   isTransientError,
   getTimeoutMs,
   getConcurrencyLimit,
-} from '../src/client';
+} from '../src-ts/client';
 
 describe('client', () => {
   describe('server config type guards', () => {
