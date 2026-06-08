@@ -21,14 +21,14 @@ A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)]
 ### 1. Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/philschmid/mcp-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/main/install.sh | bash
 ```
 
 or 
 
 ```bash
-# requires bun install
-bun install -g https://github.com/philschmid/mcp-cli
+# requires Cargo installed
+cargo install --git https://github.com/doggy8088/mcp-cli
 ```
 
 ### 2. Create a config file
@@ -539,41 +539,29 @@ The CLI includes **automatic retry with exponential backoff** for transient fail
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) >= 1.0.0
+- [Rust](https://www.rust-lang.org/) (Cargo) >= 1.75.0
 
 ### Setup
 
 ```bash
-bun install https://github.com/philschmid/mcp-cli
+git clone https://github.com/doggy8088/mcp-cli.git
+cd mcp-cli
 ```
 
 ### Commands
 
 ```bash
 # Run in development
-bun run dev
+cargo run -- --help
 
-# Type checking
-bun run typecheck
+# Code formatting check
+cargo fmt --all -- --check
 
-# Linting
-bun run lint
-bun run lint:fix
+# Linting check
+cargo clippy --all-targets --all-features -- -D warnings
 
-# Run all tests (unit + integration)
-bun test
-
-# Run only unit tests (fast)
-bun test tests/config.test.ts tests/output.test.ts tests/client.test.ts
-
-# Run integration tests (requires MCP server, ~35s)
-bun test tests/integration/
-
-# Build single executable
-bun run build
-
-# Build for all platforms
-bun run build:all
+# Run all unit tests
+cargo test
 ```
 
 ### Local Testing
