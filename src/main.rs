@@ -1,12 +1,4 @@
-pub mod client;
-pub mod commands;
-pub mod config;
-pub mod daemon;
-pub mod daemon_client;
-pub mod errors;
-pub mod output;
-
-use commands::{
+use mcp_cli::commands::{
     call_command, grep_command, info_command, list_command, CallOptions, GrepOptions, InfoOptions,
     ListOptions,
 };
@@ -96,17 +88,17 @@ fn parse_args() -> ParsedArgs {
             "-c" | "--config" => {
                 i += 1;
                 if i >= args.len() {
-                    let err = crate::errors::missing_argument_error("-c/--config", "path");
+                    let err = mcp_cli::errors::missing_argument_error("-c/--config", "path");
                     eprintln!("{}", err);
-                    std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+                    std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
                 }
                 config_path = Some(args[i].clone());
             }
             _ => {
                 if arg.starts_with('-') && arg != "-" {
-                    let err = crate::errors::unknown_option_error(arg);
+                    let err = mcp_cli::errors::unknown_option_error(arg);
                     eprintln!("{}", err);
-                    std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+                    std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
                 }
                 positional.push(arg.clone());
             }
@@ -134,8 +126,8 @@ fn parse_args() -> ParsedArgs {
 
         if server.is_empty() {
             let mut available_servers = Vec::new();
-            if let Ok(config) = crate::config::load_config(config_path.as_deref()) {
-                available_servers = crate::config::list_server_names(&config);
+            if let Ok(config) = mcp_cli::config::load_config(config_path.as_deref()) {
+                available_servers = mcp_cli::config::list_server_names(&config);
             }
 
             let server_list = if !available_servers.is_empty() {
@@ -147,7 +139,7 @@ fn parse_args() -> ParsedArgs {
             eprintln!("Error [MISSING_ARGUMENT]: Missing required argument for info: server");
             eprintln!("  Available servers: {}", server_list);
             eprintln!("  Suggestion: Use 'mcp-cli info <server>' to see server details, or just 'mcp-cli' to list all");
-            std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+            std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
         }
 
         return ParsedArgs {
@@ -163,15 +155,15 @@ fn parse_args() -> ParsedArgs {
 
     if first_arg == "grep" {
         if positional.len() < 2 {
-            let err = crate::errors::missing_argument_error("grep", "pattern");
+            let err = mcp_cli::errors::missing_argument_error("grep", "pattern");
             eprintln!("{}", err);
-            std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+            std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
         }
         let pattern = positional[1].clone();
         if positional.len() > 2 {
-            let err = crate::errors::too_many_arguments_error("grep", positional.len() - 1, 1);
+            let err = mcp_cli::errors::too_many_arguments_error("grep", positional.len() - 1, 1);
             eprintln!("{}", err);
-            std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+            std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
         }
         return ParsedArgs {
             command: "grep".to_string(),
@@ -188,9 +180,9 @@ fn parse_args() -> ParsedArgs {
         let remaining = &positional[1..];
 
         if remaining.is_empty() {
-            let err = crate::errors::missing_argument_error("call", "server and tool");
+            let err = mcp_cli::errors::missing_argument_error("call", "server and tool");
             eprintln!("{}", err);
-            std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+            std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
         }
 
         let (server, tool) = parse_server_tool(remaining);
@@ -198,14 +190,14 @@ fn parse_args() -> ParsedArgs {
         if tool.is_none() {
             if remaining[0].contains('/') && remaining[0].split('/').nth(1).unwrap_or("").is_empty()
             {
-                let err = crate::errors::missing_argument_error("call", "tool");
+                let err = mcp_cli::errors::missing_argument_error("call", "tool");
                 eprintln!("{}", err);
-                std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+                std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
             }
             if remaining.len() < 2 {
-                let err = crate::errors::missing_argument_error("call", "tool");
+                let err = mcp_cli::errors::missing_argument_error("call", "tool");
                 eprintln!("{}", err);
-                std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+                std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
             }
         }
 
@@ -232,9 +224,9 @@ fn parse_args() -> ParsedArgs {
     }
 
     if is_possible_subcommand(first_arg) {
-        let err = crate::errors::unknown_subcommand_error(first_arg);
+        let err = mcp_cli::errors::unknown_subcommand_error(first_arg);
         eprintln!("{}", err);
-        std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+        std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
     }
 
     if first_arg.contains('/') {
@@ -242,9 +234,9 @@ fn parse_args() -> ParsedArgs {
         let server_name = parts[0];
         let tool_name = parts.get(1).unwrap_or(&"");
         let has_args = positional.len() > 1;
-        let err = crate::errors::ambiguous_command_error(server_name, tool_name, has_args);
+        let err = mcp_cli::errors::ambiguous_command_error(server_name, tool_name, has_args);
         eprintln!("{}", err);
-        std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+        std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
     }
 
     if positional.len() >= 2 {
@@ -258,9 +250,10 @@ fn parse_args() -> ParsedArgs {
 
         if !looks_like_json && looks_like_tool_name {
             let has_args = positional.len() > 2;
-            let err = crate::errors::ambiguous_command_error(server_name, possible_tool, has_args);
+            let err =
+                mcp_cli::errors::ambiguous_command_error(server_name, possible_tool, has_args);
             eprintln!("{}", err);
-            std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+            std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
         }
     }
 
@@ -335,14 +328,14 @@ async fn main() {
     if args.len() >= 4 && args[1] == "--daemon" {
         let server_name = &args[2];
         let config_json = &args[3];
-        let config: crate::config::ServerConfig = match serde_json::from_str(config_json) {
+        let config: mcp_cli::config::ServerConfig = match serde_json::from_str(config_json) {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("Failed to parse server config for daemon: {}", e);
-                std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+                std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
             }
         };
-        if let Err(e) = crate::daemon::run_daemon(server_name, config).await {
+        if let Err(e) = mcp_cli::daemon::run_daemon(server_name, config).await {
             eprintln!("{}", e);
             std::process::exit(e.code.exit_code());
         }
@@ -413,7 +406,7 @@ async fn main() {
         }
         _ => {
             eprintln!("Unknown command: {}", parsed.command);
-            std::process::exit(crate::errors::ErrorCode::ClientError.exit_code());
+            std::process::exit(mcp_cli::errors::ErrorCode::ClientError.exit_code());
         }
     };
 
