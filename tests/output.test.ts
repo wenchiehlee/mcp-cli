@@ -10,7 +10,7 @@ import {
   formatToolResult,
   formatJson,
   formatError,
-} from '../src/output';
+} from '../src-ts/output';
 
 // Disable colors for testing
 process.env.NO_COLOR = '1';
