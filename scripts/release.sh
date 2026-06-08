@@ -1,5 +1,5 @@
 #!/bin/bash
-# Release script for mcp-cli
+# Release script for mcp-cli (Pure Rust Version)
 # Usage: ./scripts/release.sh <version>
 # Example: ./scripts/release.sh 0.1.0
 
@@ -54,36 +54,26 @@ fi
 
 echo -e "${GREEN}Preparing release v$VERSION${NC}"
 
-# Update version in package.json
-echo "Updating package.json..."
-if command -v jq &> /dev/null; then
-    jq ".version = \"$VERSION\"" package.json > package.json.tmp && mv package.json.tmp package.json
-else
-    sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" package.json
-    rm -f package.json.bak
-fi
+# Update version in Cargo.toml
+echo "Updating Cargo.toml..."
+sed -i.bak "s/^version = \"[^\"]*\"/version = \"$VERSION\"/" Cargo.toml
+rm -f Cargo.toml.bak
 
-# Update version in src/version.ts (used by compiled binary)
-echo "Updating src/version.ts..."
-cat > src/version.ts << EOF
-/**
- * Version constant - single source of truth
- * This file is auto-updated by scripts/release.sh
- */
-export const VERSION = '$VERSION';
-EOF
+# Force Cargo to update Cargo.lock version
+echo "Updating Cargo.lock..."
+cargo check
 
-# Run tests before releasing
+# Run cargo tests
 echo "Running tests..."
-bun run typecheck
-bun run lint
-bun test tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
 
 echo -e "${GREEN}Tests passed!${NC}"
 
 # Commit version bump
 echo "Committing version bump..."
-git add package.json src/version.ts
+git add Cargo.toml Cargo.lock
 git commit -m "Release v$VERSION"
 
 # Create tag
@@ -99,9 +89,10 @@ echo ""
 echo -e "${GREEN}✓ Release v$VERSION created successfully!${NC}"
 echo ""
 echo "GitHub Actions will now:"
-echo "  1. Run the full test suite"
+echo "  1. Run the full Rust check & test suite"
 echo "  2. Build binaries for Linux and macOS"
 echo "  3. Create the GitHub release"
 echo ""
 echo "Monitor the release at:"
 echo "  https://github.com/philschmid/mcp-cli/actions"
+EOF
