@@ -1,6 +1,6 @@
 #!/bin/bash
 # Install script for mcp-cli
-# Usage: curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/v1.0.0/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/main/install.sh | bash
 
 set -e
 
