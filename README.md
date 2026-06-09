@@ -22,7 +22,7 @@ A lightweight Rust CLI and library for interacting with [MCP (Model Context Prot
 ### 1. Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/v1.0.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/main/install.sh | bash
 ```
 
 or 
