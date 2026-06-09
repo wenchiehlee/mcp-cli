@@ -2,6 +2,8 @@
 
 A lightweight Rust CLI and library for interacting with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers.
 
+> [繁體中文](./README.md) | English
+
 ## Features
 
 - 🪶 **Lightweight** - Minimal dependencies, blazing fast startup, written in pure Rust
