@@ -500,7 +500,7 @@ By default, the CLI uses **lazy-spawn connection pooling** to avoid repeated MCP
          └────────────────┬───────────────────┘
                           ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│ On idle timeout (60s): Daemon self-terminates, cleans up files    │
+│ On idle timeout (60s): Daemon self-terminates, cleans up files     │
 └────────────────────────────────────────────────────────────────────┘
 ```
 

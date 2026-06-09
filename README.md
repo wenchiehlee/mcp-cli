@@ -525,7 +525,7 @@ CLI 預設使用 **lazy-spawn connection pooling**，避免重複啟動 MCP serv
          └────────────────┬───────────────────┘
                           ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│ On idle timeout (60s): Daemon self-terminates, cleans up files    │
+│ On idle timeout (60s): Daemon self-terminates, cleans up files     │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
