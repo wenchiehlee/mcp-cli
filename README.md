@@ -2,7 +2,7 @@
 
 輕量的 Rust CLI 與 library，用來和 [MCP Model Context Protocol](https://modelcontextprotocol.io/) 伺服器互動。
 
-[English README](./README.en.md)
+> 繁體中文 | [English](./README.en.md)
 
 * * *
 
