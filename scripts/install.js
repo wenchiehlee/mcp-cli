@@ -22,6 +22,8 @@ function assetName() {
   if (platform === 'linux' && arch === 'arm64') return 'mcp-cli-linux-arm64';
   if (platform === 'darwin' && arch === 'x64') return 'mcp-cli-darwin-x64';
   if (platform === 'darwin' && arch === 'arm64') return 'mcp-cli-darwin-arm64';
+  if (platform === 'win32' && arch === 'x64') return 'mcp-cli-win-x64.exe';
+  if (platform === 'win32' && arch === 'ia32') return 'mcp-cli-win-x86.exe';
   if (platform === 'win32' && arch === 'arm64') return 'mcp-cli-win-arm64.exe';
 
   throw new Error(`Unsupported platform: ${platform}/${arch}`);
