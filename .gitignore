@@ -56,3 +56,7 @@ target/
 *.pdb
 
 # End of https://www.toptal.com/developers/gitignore/api/rust
+
+# Local MCP tracking file
+MCP.md
+mcp_servers.json

@@ -352,6 +352,14 @@ async fn process_sse_event(
         "endpoint" => {
             let new_url = if data.starts_with("http://") || data.starts_with("https://") {
                 data.to_string()
+            } else if let Ok(base) = url::Url::parse(base_url) {
+                if let Ok(resolved) = base.join(data) {
+                    resolved.to_string()
+                } else {
+                    let base = base_url.trim_end_matches('/');
+                    let rel = data.trim_start_matches('/');
+                    format!("{}/{}", base, rel)
+                }
             } else {
                 let base = base_url.trim_end_matches('/');
                 let rel = data.trim_start_matches('/');
@@ -447,6 +455,14 @@ impl HttpClient {
                                     let data = &current_data;
                                     let resolved_url = if data.starts_with("http://") || data.starts_with("https://") {
                                         data.to_string()
+                                    } else if let Ok(base) = url::Url::parse(&config.url) {
+                                        if let Ok(resolved) = base.join(data) {
+                                            resolved.to_string()
+                                        } else {
+                                            let base = config.url.trim_end_matches('/');
+                                            let rel = data.trim_start_matches('/');
+                                            format!("{}/{}", base, rel)
+                                        }
                                     } else {
                                         let base = config.url.trim_end_matches('/');
                                         let rel = data.trim_start_matches('/');
