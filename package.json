@@ -1,6 +1,6 @@
 {
   "name": "@wenchiehlee1020/mcp-cli",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "npm wrapper for the mcp-cli native binary",
   "license": "MIT",
   "homepage": "https://github.com/wenchiehlee/mcp-cli#readme",

@@ -397,7 +397,9 @@ impl HttpClient {
         }
 
         // 嘗試探測並建立標準 SSE 的 GET 連線，設定 5 秒超時
-        let mut sse_builder = client.get(&config.url).header("accept", "text/event-stream");
+        let mut sse_builder = client.get(&config.url)
+            .header("accept", "text/event-stream")
+            .header("connection", "close");
         for (k, v) in &headers {
             sse_builder = sse_builder.header(k, v);
         }
