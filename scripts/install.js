@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 
 const packageJson = require('../package.json');
-const repo = process.env.MCP_CLI_REPO || 'doggy8088/mcp-cli';
+const repo = process.env.MCP_CLI_REPO || 'wenchiehlee/mcp-cli';
 const version = process.env.MCP_CLI_VERSION || `v${packageJson.version}`;
 const vendorDir = path.join(__dirname, '..', 'vendor');
 const binaryName = process.platform === 'win32' ? 'mcp-cli.exe' : 'mcp-cli';
