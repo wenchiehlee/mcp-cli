@@ -316,8 +316,18 @@ impl StdioClient {
 }
 
 // ============================================================================
-// Http Client Implementation (Streamable HTTP)
+// Http Client Implementation (Streamable HTTP & Standard SSE)
 // ============================================================================
+
+#[derive(Clone)]
+enum HttpMode {
+    Streamable,
+    StandardSse {
+        post_url: Arc<Mutex<String>>,
+        pending_requests: Arc<Mutex<HashMap<serde_json::Value, oneshot::Sender<Result<serde_json::Value, CliError>>>>>,
+        next_id: Arc<AtomicU64>,
+    },
+}
 
 #[derive(Clone)]
 pub struct HttpClient {
@@ -327,6 +337,50 @@ pub struct HttpClient {
     client: reqwest::Client,
     session_id: Arc<Mutex<Option<String>>>,
     protocol_version: Arc<Mutex<Option<String>>>,
+    mode: HttpMode,
+}
+
+async fn process_sse_event(
+    event: &str,
+    data: &str,
+    base_url: &str,
+    post_url: &Arc<Mutex<String>>,
+    pending_requests: &Arc<Mutex<HashMap<serde_json::Value, oneshot::Sender<Result<serde_json::Value, CliError>>>>>,
+    server_name: &str,
+) {
+    match event {
+        "endpoint" => {
+            let new_url = if data.starts_with("http://") || data.starts_with("https://") {
+                data.to_string()
+            } else {
+                let base = base_url.trim_end_matches('/');
+                let rel = data.trim_start_matches('/');
+                format!("{}/{}", base, rel)
+            };
+            *post_url.lock().await = new_url;
+            debug(&format!("[{}] Updated post_url to: {}", server_name, data));
+        }
+        "message" => {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(data) {
+                if let Some(id) = val.get("id") {
+                    let mut reqs = pending_requests.lock().await;
+                    if let Some(sender) = reqs.remove(id) {
+                        if let Some(error) = val.get("error") {
+                            let msg = error
+                                .get("message")
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("Unknown error");
+                            let _ = sender.send(Err(tool_execution_error("SSE message", server_name, msg)));
+                        } else {
+                            let result = val.get("result").cloned().unwrap_or(serde_json::Value::Null);
+                            let _ = sender.send(Ok(result));
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 impl HttpClient {
@@ -342,6 +396,152 @@ impl HttpClient {
             }
         }
 
+        // 嘗試探測並建立標準 SSE 的 GET 連線，設定 5 秒超時
+        let mut sse_builder = client.get(&config.url).header("accept", "text/event-stream");
+        for (k, v) in &headers {
+            sse_builder = sse_builder.header(k, v);
+        }
+
+        let sse_probe = tokio::time::timeout(
+            Duration::from_secs(5),
+            sse_builder.send()
+        ).await;
+
+        let mut is_standard_sse = false;
+        let mut post_url_val = config.url.clone();
+        let mut sse_stream_opt = None;
+
+        if let Ok(Ok(resp)) = sse_probe {
+            let status = resp.status();
+            let content_type = resp.headers().get("content-type")
+                .and_then(|c| c.to_str().ok())
+                .unwrap_or("");
+            if status.is_success() && content_type.contains("text/event-stream") {
+                is_standard_sse = true;
+                sse_stream_opt = Some(resp.bytes_stream());
+            }
+        }
+
+        let mode = if is_standard_sse {
+            let mut sse_stream = sse_stream_opt.unwrap();
+            let mut current_event = String::new();
+            let mut current_data = String::new();
+            let mut found_endpoint = false;
+
+            // 讀取第一個 endpoint 事件，最多等待 5 秒
+            let endpoint_probe = tokio::time::timeout(Duration::from_secs(5), async {
+                while let Some(chunk_res) = sse_stream.next().await {
+                    if let Ok(chunk) = chunk_res {
+                        let text = String::from_utf8_lossy(&chunk);
+                        for line in text.lines() {
+                            let line = line.trim();
+                            if line.is_empty() {
+                                if current_event == "endpoint" && !current_data.is_empty() {
+                                    let data = &current_data;
+                                    let resolved_url = if data.starts_with("http://") || data.starts_with("https://") {
+                                        data.to_string()
+                                    } else {
+                                        let base = config.url.trim_end_matches('/');
+                                        let rel = data.trim_start_matches('/');
+                                        format!("{}/{}", base, rel)
+                                    };
+                                    post_url_val = resolved_url;
+                                    found_endpoint = true;
+                                    break;
+                                }
+                                current_event.clear();
+                                current_data.clear();
+                            } else if line.starts_with("event:") {
+                                current_event = line.trim_start_matches("event:").trim().to_string();
+                            } else if line.starts_with("data:") {
+                                let data_line = line.trim_start_matches("data:").trim();
+                                if current_data.is_empty() {
+                                    current_data = data_line.to_string();
+                                } else {
+                                    current_data.push_str(data_line);
+                                }
+                            }
+                        }
+                    }
+                    if found_endpoint {
+                        break;
+                    }
+                }
+                found_endpoint
+            }).await;
+
+            let endpoint_found = match endpoint_probe {
+                Ok(found) => found,
+                Err(_) => false,
+            };
+
+            if endpoint_found {
+                let post_url = Arc::new(Mutex::new(post_url_val));
+                let pending_requests = Arc::new(Mutex::new(HashMap::new()));
+                let next_id = Arc::new(AtomicU64::new(1));
+
+                // 啟動背景 task 監聽剩餘的 SSE stream
+                let post_url_clone = Arc::clone(&post_url);
+                let pending_requests_clone = Arc::clone(&pending_requests);
+                let server_name_clone = server_name.to_string();
+                let base_url_clone = config.url.clone();
+
+                tokio::spawn(async move {
+                    let mut stream = sse_stream;
+                    let mut current_event = String::new();
+                    let mut current_data = String::new();
+
+                    while let Some(chunk_res) = stream.next().await {
+                        let chunk = match chunk_res {
+                            Ok(c) => c,
+                            Err(e) => {
+                                debug(&format!("SSE stream read error for {}: {}", server_name_clone, e));
+                                break;
+                            }
+                        };
+                        let text = String::from_utf8_lossy(&chunk);
+                        for line in text.lines() {
+                            let line = line.trim();
+                            if line.is_empty() {
+                                if !current_event.is_empty() && !current_data.is_empty() {
+                                    process_sse_event(
+                                        &current_event,
+                                        &current_data,
+                                        &base_url_clone,
+                                        &post_url_clone,
+                                        &pending_requests_clone,
+                                        &server_name_clone
+                                    ).await;
+                                }
+                                current_event.clear();
+                                current_data.clear();
+                            } else if line.starts_with("event:") {
+                                current_event = line.trim_start_matches("event:").trim().to_string();
+                            } else if line.starts_with("data:") {
+                                let data_line = line.trim_start_matches("data:").trim();
+                                if current_data.is_empty() {
+                                    current_data = data_line.to_string();
+                                } else {
+                                    current_data.push_str(data_line);
+                                }
+                            }
+                        }
+                    }
+                    debug(&format!("SSE GET stream ended for standard SSE server {}", server_name_clone));
+                });
+
+                HttpMode::StandardSse {
+                    post_url,
+                    pending_requests,
+                    next_id,
+                }
+            } else {
+                HttpMode::Streamable
+            }
+        } else {
+            HttpMode::Streamable
+        };
+
         let http_client = HttpClient {
             server_name: server_name.to_string(),
             url: config.url.clone(),
@@ -349,6 +549,7 @@ impl HttpClient {
             client,
             session_id: Arc::new(Mutex::new(None)),
             protocol_version: Arc::new(Mutex::new(Some("2024-11-05".to_string()))),
+            mode,
         };
 
         // Step 1: Handshake
@@ -386,15 +587,109 @@ impl HttpClient {
         method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value, CliError> {
+        match &self.mode {
+            HttpMode::Streamable => self.request_streamable(method, params).await,
+            HttpMode::StandardSse {
+                post_url,
+                pending_requests,
+                next_id,
+            } => {
+                self.request_standard_sse(method, params, post_url, pending_requests, next_id).await
+            }
+        }
+    }
+
+    async fn request_standard_sse(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+        post_url: &Arc<Mutex<String>>,
+        pending_requests: &Arc<Mutex<HashMap<serde_json::Value, oneshot::Sender<Result<serde_json::Value, CliError>>>>>,
+        next_id: &Arc<AtomicU64>,
+    ) -> Result<serde_json::Value, CliError> {
+        let id_num = next_id.fetch_add(1, Ordering::SeqCst);
+        let id_val = serde_json::json!(id_num);
+
         let mut req = serde_json::Map::new();
         req.insert("jsonrpc".to_string(), serde_json::json!("2.0"));
-        req.insert("id".to_string(), serde_json::json!(1)); // Stateless requests can reuse ID 1
+        req.insert("id".to_string(), id_val.clone());
+        req.insert("method".to_string(), serde_json::json!(method));
+        req.insert("params".to_string(), params);
+
+        let target_url = post_url.lock().await.clone();
+        let mut builder = self.client.post(&target_url);
+
+        builder = builder.header("content-type", "application/json");
+        for (k, v) in &self.headers {
+            builder = builder.header(k, v);
+        }
+
+        if let Some(ref sid) = *self.session_id.lock().await {
+            builder = builder.header("mcp-session-id", sid);
+        }
+        if let Some(ref pv) = *self.protocol_version.lock().await {
+            builder = builder.header("mcp-protocol-version", pv);
+        }
+
+        let (tx, rx) = oneshot::channel();
+        {
+            let mut reqs = pending_requests.lock().await;
+            reqs.insert(id_val.clone(), tx);
+        }
+
+        let response = builder.json(&req).send().await.map_err(|e| {
+            let pending_clone = Arc::clone(pending_requests);
+            let id_clone = id_val.clone();
+            tokio::spawn(async move {
+                pending_clone.lock().await.remove(&id_clone);
+            });
+            server_connection_error(&self.server_name, &format!("HTTP request failed: {}", e))
+        })?;
+
+        if !response.status().is_success() {
+            let mut reqs = pending_requests.lock().await;
+            reqs.remove(&id_val);
+            return Err(server_connection_error(
+                &self.server_name,
+                &format!("HTTP POST returned error status: {}", response.status()),
+            ));
+        }
+
+        let timeout_duration = Duration::from_millis(get_timeout_ms());
+        tokio::select! {
+            res = rx => {
+                match res {
+                    Ok(rpc_res) => rpc_res,
+                    Err(_) => Err(server_connection_error(
+                        &self.server_name,
+                        "Oneshot channel closed without response",
+                    )),
+                }
+            }
+            _ = tokio::time::sleep(timeout_duration) => {
+                let mut reqs = pending_requests.lock().await;
+                reqs.remove(&id_val);
+                Err(server_connection_error(
+                    &self.server_name,
+                    "HTTP request timed out waiting for SSE message",
+                ))
+            }
+        }
+    }
+
+    async fn request_streamable(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, CliError> {
+        let mut req = serde_json::Map::new();
+        req.insert("jsonrpc".to_string(), serde_json::json!("2.0"));
+        req.insert("id".to_string(), serde_json::json!(1));
         req.insert("method".to_string(), serde_json::json!(method));
         req.insert("params".to_string(), params);
 
         let mut builder = self.client.post(&self.url);
 
-        // Set standard headers
         builder = builder.header("content-type", "application/json");
         builder = builder.header("accept", "application/json, text/event-stream");
 
@@ -414,7 +709,6 @@ impl HttpClient {
             server_connection_error(&self.server_name, &format!("HTTP request failed: {}", e))
         })?;
 
-        // Update session ID if returned in headers
         if let Some(sid) = response.headers().get("mcp-session-id") {
             if let Ok(sid_str) = sid.to_str() {
                 *self.session_id.lock().await = Some(sid_str.to_string());
@@ -428,7 +722,6 @@ impl HttpClient {
             ));
         }
 
-        // Check response content type
         let content_type = response
             .headers()
             .get("content-type")
@@ -436,7 +729,6 @@ impl HttpClient {
             .unwrap_or("");
 
         if content_type.contains("text/event-stream") {
-            // Streaming SSE response
             let mut stream = response.bytes_stream();
             while let Some(chunk_res) = stream.next().await {
                 let chunk = chunk_res.map_err(|e| {
@@ -465,7 +757,6 @@ impl HttpClient {
                 "SSE stream ended without response",
             ))
         } else {
-            // Application/json response
             let val = response.json::<serde_json::Value>().await.map_err(|e| {
                 server_connection_error(&self.server_name, &format!("Invalid JSON response: {}", e))
             })?;
@@ -486,6 +777,58 @@ impl HttpClient {
     }
 
     async fn notify(&self, method: &str, params: serde_json::Value) -> Result<(), CliError> {
+        match &self.mode {
+            HttpMode::Streamable => self.notify_streamable(method, params).await,
+            HttpMode::StandardSse { post_url, .. } => {
+                self.notify_standard_sse(method, params, post_url).await
+            }
+        }
+    }
+
+    async fn notify_standard_sse(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+        post_url: &Arc<Mutex<String>>,
+    ) -> Result<(), CliError> {
+        let mut req = serde_json::Map::new();
+        req.insert("jsonrpc".to_string(), serde_json::json!("2.0"));
+        req.insert("method".to_string(), serde_json::json!(method));
+        req.insert("params".to_string(), params);
+
+        let target_url = post_url.lock().await.clone();
+        let mut builder = self.client.post(&target_url);
+        builder = builder.header("content-type", "application/json");
+
+        for (k, v) in &self.headers {
+            builder = builder.header(k, v);
+        }
+
+        if let Some(ref sid) = *self.session_id.lock().await {
+            builder = builder.header("mcp-session-id", sid);
+        }
+        if let Some(ref pv) = *self.protocol_version.lock().await {
+            builder = builder.header("mcp-protocol-version", pv);
+        }
+
+        let response = builder.json(&req).send().await.map_err(|e| {
+            server_connection_error(
+                &self.server_name,
+                &format!("HTTP notification failed: {}", e),
+            )
+        })?;
+
+        if !response.status().is_success() {
+            return Err(server_connection_error(
+                &self.server_name,
+                &format!("HTTP notification returned error status: {}", response.status()),
+            ));
+        }
+
+        Ok(())
+    }
+
+    async fn notify_streamable(&self, method: &str, params: serde_json::Value) -> Result<(), CliError> {
         let mut req = serde_json::Map::new();
         req.insert("jsonrpc".to_string(), serde_json::json!("2.0"));
         req.insert("method".to_string(), serde_json::json!(method));
@@ -513,11 +856,9 @@ impl HttpClient {
             )
         })?;
 
-        // 202 Accepted triggers GET stream connection
         if response.status() == reqwest::StatusCode::ACCEPTED
             && method == "notifications/initialized"
         {
-            // Start a separate background stream
             let client = self.client.clone();
             let url = self.url.clone();
             let headers = self.headers.clone();
@@ -541,9 +882,7 @@ impl HttpClient {
                     let mut stream = resp.bytes_stream();
                     while let Some(Ok(chunk)) = stream.next().await {
                         let text = String::from_utf8_lossy(&chunk);
-                        for _line in text.lines() {
-                            // Can log or process messages if needed
-                        }
+                        for _line in text.lines() {}
                     }
                 }
                 debug(&format!(
