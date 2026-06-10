@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "filesystem": {
-      "command": "npx",
+      "command": "npx.cmd",
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
@@ -13,6 +13,33 @@
     },
     "deepwiki": {
       "url": "https://mcp.deepwiki.com/mcp"
+    },
+    "twinkle-hub": {
+      "url": "https://api.twinkleai.tw/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-PKmKpGhwbt27uVnjn4jApw"
+      }
+    },
+    "chrome-devtools": {
+      "command": "npx.cmd",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--autoConnect"
+      ]
+    },
+    "github-mcp-server": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server:0.29.0"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<請在此處填入您的 GitHub Fine-grained PAT>"
+      }
     }
   }
 }

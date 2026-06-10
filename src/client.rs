@@ -427,13 +427,18 @@ impl HttpClient {
             let mut current_event = String::new();
             let mut current_data = String::new();
             let mut found_endpoint = false;
+            let mut buffer = String::new();
 
             // 讀取第一個 endpoint 事件，最多等待 5 秒
             let endpoint_probe = tokio::time::timeout(Duration::from_secs(5), async {
                 while let Some(chunk_res) = sse_stream.next().await {
                     if let Ok(chunk) = chunk_res {
                         let text = String::from_utf8_lossy(&chunk);
-                        for line in text.lines() {
+                        buffer.push_str(&text);
+                        while let Some(pos) = buffer.find('\n') {
+                            let mut line = buffer.drain(..=pos).collect::<String>();
+                            if line.ends_with('\n') { line.pop(); }
+                            if line.ends_with('\r') { line.pop(); }
                             let line = line.trim();
                             if line.is_empty() {
                                 if current_event == "endpoint" && !current_data.is_empty() {
@@ -480,7 +485,7 @@ impl HttpClient {
                 let pending_requests = Arc::new(Mutex::new(HashMap::new()));
                 let next_id = Arc::new(AtomicU64::new(1));
 
-                // 啟動背景 task 監聽剩餘的 SSE stream
+                // 啟動背景 task 監聽剩餘 of SSE stream
                 let post_url_clone = Arc::clone(&post_url);
                 let pending_requests_clone = Arc::clone(&pending_requests);
                 let server_name_clone = server_name.to_string();
@@ -490,6 +495,7 @@ impl HttpClient {
                     let mut stream = sse_stream;
                     let mut current_event = String::new();
                     let mut current_data = String::new();
+                    let mut buffer = String::new();
 
                     while let Some(chunk_res) = stream.next().await {
                         let chunk = match chunk_res {
@@ -500,7 +506,11 @@ impl HttpClient {
                             }
                         };
                         let text = String::from_utf8_lossy(&chunk);
-                        for line in text.lines() {
+                        buffer.push_str(&text);
+                        while let Some(pos) = buffer.find('\n') {
+                            let mut line = buffer.drain(..=pos).collect::<String>();
+                            if line.ends_with('\n') { line.pop(); }
+                            if line.ends_with('\r') { line.pop(); }
                             let line = line.trim();
                             if line.is_empty() {
                                 if !current_event.is_empty() && !current_data.is_empty() {
@@ -730,12 +740,18 @@ impl HttpClient {
 
         if content_type.contains("text/event-stream") {
             let mut stream = response.bytes_stream();
+            let mut buffer = String::new();
             while let Some(chunk_res) = stream.next().await {
                 let chunk = chunk_res.map_err(|e| {
                     server_connection_error(&self.server_name, &format!("SSE read failed: {}", e))
                 })?;
                 let text = String::from_utf8_lossy(&chunk);
-                for line in text.lines() {
+                buffer.push_str(&text);
+                while let Some(pos) = buffer.find('\n') {
+                    let mut line = buffer.drain(..=pos).collect::<String>();
+                    if line.ends_with('\n') { line.pop(); }
+                    if line.ends_with('\r') { line.pop(); }
+                    let line = line.trim();
                     if line.starts_with("data:") {
                         let data_json = line.trim_start_matches("data:").trim();
                         if let Ok(val) = serde_json::from_str::<serde_json::Value>(data_json) {
