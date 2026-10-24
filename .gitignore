@@ -60,3 +60,10 @@ target/
 # Local MCP tracking file
 MCP.md
 mcp_servers.json
+
+# Skills directory
+skills/
+
+# Downloaded vendor binaries
+vendor/
+

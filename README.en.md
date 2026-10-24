@@ -11,7 +11,8 @@ A lightweight Rust CLI and library for interacting with [MCP (Model Context Prot
 - 🧰 **Rust Library** - Use the same MCP client functionality from other Rust applications
 - 🔧 **Shell-Friendly** - JSON output for call, pipes with `jq`, chaining support
 - 🤖 **Agent-Optimized** - Designed for AI coding agents (Gemini CLI, Claude Code, etc.)
-- 🔌 **Universal** - Supports both stdio and HTTP MCP servers
+- 💻 **Cross-Platform** - Pre-built native binaries for Linux (x64/arm64), macOS (x64/arm64), and Windows (x64/x86/arm64)
+- 🔌 **Universal Connectivity** - Supports stdio, Streamable HTTP, and Standard MCP SSE (HTTP+SSE) transports
 - ⚡ **Connection Pooling** - Lazy-spawn daemon keeps connections warm (60s idle timeout)
 - � **Tool Filtering** - Allow/disable specific tools per server via config
 - 📋 **Server Instructions** - Display MCP server instructions in output
@@ -24,14 +25,23 @@ A lightweight Rust CLI and library for interacting with [MCP (Model Context Prot
 ### 1. Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wenchiehlee/mcp-cli/main/install.sh | bash
 ```
 
-or 
+or with Cargo:
 
 ```bash
 # requires Cargo installed
-cargo install --git https://github.com/doggy8088/mcp-cli
+cargo install --git https://github.com/wenchiehlee/mcp-cli
+```
+
+or via npm:
+
+```bash
+npm install -g @wenchiehlee1020/mcp-cli
+```
+
+The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag (supports Linux, macOS, and Windows). For example, `@wenchiehlee1020/mcp-cli@0.1.8` downloads assets from `v0.1.8`.
 ```
 
 ### 2. Create a config file
@@ -93,7 +103,7 @@ Add the crate to another Rust project:
 
 ```toml
 [dependencies]
-mcp-cli = { git = "https://github.com/doggy8088/mcp-cli" }
+mcp-cli = { git = "https://github.com/wenchiehlee/mcp-cli" }
 ```
 
 Use `McpClient` for the common workflow:
@@ -586,7 +596,7 @@ The CLI includes **automatic retry with exponential backoff** for transient fail
 ### Setup
 
 ```bash
-git clone https://github.com/doggy8088/mcp-cli.git
+git clone https://github.com/wenchiehlee/mcp-cli.git
 cd mcp-cli
 ```
 
@@ -689,7 +699,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ### Install with npm
 
 ```bash
-npm install -g @willh/mcp-cli
+npm install -g @wenchiehlee1020/mcp-cli
 ```
 
-The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag. For example, `@willh/mcp-cli@0.1.0` downloads assets from `v0.1.0`.
+The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag. For example, `@wenchiehlee1020/mcp-cli@0.1.8` downloads assets from `v0.1.8`.

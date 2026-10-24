@@ -10,10 +10,11 @@
 
 - **輕量**：純 Rust 實作，依賴少，啟動快。
 - **單一 Binary**：可透過 Cargo 編譯成完整最佳化的獨立執行檔，不需要外部 runtime。
+- **跨平台支援**：提供 Linux (x64/arm64)、macOS (x64/arm64) 與 Windows (x64/x86/arm64) 預編譯原生二進位執行檔。
 - **Rust Library**：可在其他 Rust 應用程式中使用相同的 MCP client 功能。
 - **Shell 友善**：`call` 指令輸出 JSON，適合搭配 `jq`、pipe 與 shell script。
 - **Agent 導向**：設計給 AI coding agents 使用，例如 Gemini CLI、Claude Code 等。
-- **通用連線**：支援 stdio 與 HTTP MCP 伺服器。
+- **通用連線**：支援 stdio、Streamable HTTP 與標準 MCP SSE (HTTP+SSE) 伺服器傳輸協定。
 - **連線池**：lazy-spawn daemon 會保留暖連線，預設 60 秒閒置逾時。
 - **工具過濾**：可透過設定限制每個伺服器允許或停用的 tools。
 - **伺服器指示**：可在輸出中顯示 MCP server instructions。
@@ -28,23 +29,23 @@
 ### 1. 安裝
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wenchiehlee/mcp-cli/main/install.sh | bash
 ```
 
 或：
 
 ```bash
 # 需要先安裝 Cargo
-cargo install --git https://github.com/doggy8088/mcp-cli
+cargo install --git https://github.com/wenchiehlee/mcp-cli
 ```
 
 也可以透過 npm 安裝：
 
 ```bash
-npm install -g @willh/mcp-cli
+npm install -g @wenchiehlee1020/mcp-cli
 ```
 
-npm package 是一層很薄的 wrapper，會從相同版本的 GitHub Release tag 下載原生 `mcp-cli` binary。例如 `@willh/mcp-cli@0.1.1` 會下載 `v0.1.1` 的 assets。
+npm package 是一層很薄的 wrapper，會從相同版本的 GitHub Release tag 下載原生 `mcp-cli` binary（支援 Linux、macOS 與 Windows）。例如 `@wenchiehlee1020/mcp-cli@0.1.8` 會下載 `v0.1.8` 的 assets。
 
 ### 2. 建立設定檔
 
@@ -128,7 +129,7 @@ mcp-cli [options] call <server> <tool> <json> 使用 JSON arguments 呼叫 tool
 
 ```toml
 [dependencies]
-mcp-cli = { git = "https://github.com/doggy8088/mcp-cli" }
+mcp-cli = { git = "https://github.com/wenchiehlee/mcp-cli" }
 ```
 
 使用 `McpClient` 執行常見流程：
@@ -613,7 +614,7 @@ CLI 對短暫性 failures 內建 **exponential backoff 自動 retry**。
 ### 設定
 
 ```bash
-git clone https://github.com/doggy8088/mcp-cli.git
+git clone https://github.com/wenchiehlee/mcp-cli.git
 cd mcp-cli
 ```
 
