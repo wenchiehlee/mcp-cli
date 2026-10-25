@@ -14,11 +14,63 @@ A lightweight Rust CLI and library for interacting with [MCP (Model Context Prot
 - 💻 **Cross-Platform** - Pre-built native binaries for Linux (x64/arm64), macOS (x64/arm64), and Windows (x64/x86/arm64)
 - 🔌 **Universal Connectivity** - Supports stdio, Streamable HTTP, and Standard MCP SSE (HTTP+SSE) transports
 - ⚡ **Connection Pooling** - Lazy-spawn daemon keeps connections warm (60s idle timeout)
-- � **Tool Filtering** - Allow/disable specific tools per server via config
+- 🛡️ **Tool Filtering** - Allow/disable specific tools per server via config
 - 📋 **Server Instructions** - Display MCP server instructions in output
-- �💡 **Actionable Errors** - Structured error messages with available servers and recovery suggestions
+- 💡 **Actionable Errors** - Structured error messages with available servers and recovery suggestions
 
 ![mcp-cli](./comparison.jpeg)
+
+* * *
+
+## Use Cases
+
+1. **🤖 Token-Efficient Tooling for AI Coding Agents**
+   - Traditional integrations dump entire MCP tool schemas into the AI context window, consuming thousands of tokens per request.
+   - With `mcp-cli`, agents (Gemini CLI, Claude Code, Cursor, Windsurf, etc.) inspect schemas and invoke tools on-demand via single CLI commands (`mcp-cli info`, `mcp-cli call`), saving token budgets and keeping conversation history lean.
+
+2. **⚙️ DevOps & Shell Pipeline Automation**
+   - The `call` subcommand outputs clean JSON directly to stdout, designed for piping with `jq`, `curl`, and standard Unix shell utilities.
+   - Examples: automated stock alert polling, querying government open data, or executing automated validation tests against MCP servers in CI/CD.
+
+3. **🌐 Unified Multi-Protocol Orchestration**
+   - Manage local sub-processes (`stdio` using Node.js, Python, or Docker) and remote endpoints (`Streamable HTTP` and `Standard MCP SSE`) in a single configuration.
+   - Built-in lazy connection daemon keeps connections warm, eliminating process startup latency.
+
+4. **🔒 Privacy-First & Cross-Platform Team Configuration**
+   - Built-in `.env` auto-loading and `${VAR_NAME}` variable substitution keep private keys on local machines while allowing teams to safely commit server configs.
+   - Seamlessly share configs across Linux (x64/arm64), macOS (x64/arm64), and Windows (x64/x86/arm64).
+
+5. **🛡️ Enterprise Governance & Policy Compliance for Restricted Environments**
+   - **The Challenge:** Many enterprises, financial institutions, and security-conscious organizations strictly limit or prohibit raw MCP integrations in AI IDEs/apps due to fears of data exfiltration, uncontrolled destructive operations, and unmonitored background connections.
+   - **How `mcp-cli` Solves It:**
+     - **Fine-Grained Least Privilege (`allowedTools` / `disabledTools`):** Security teams can enforce strict whitelists (e.g., allow only `read_*` or `search_*` queries) and disable risky capabilities (e.g., blocking `delete_*`, `write_*`, or arbitrary command execution).
+     - **Full Shell Auditability:** Unlike opaque AI IDE extensions executing hidden calls, every tool invocation runs as a transparent CLI command (`mcp-cli call ...`), making all inputs and outputs fully visible to terminal history, CI/CD audit logs, and enterprise SIEM/EDR monitoring.
+     - **Zero-Footprint Execution (`MCP_NO_DAEMON=1`):** Complies with strict security policies prohibiting unauthorized background daemon processes and persistent sockets—connections open on-demand and terminate immediately after execution.
+
+6. **🔄 Universal Single Source of Truth across Claude, Gemini & Codex (Zero-Config Multi-Agent Hub)**
+   - **The Problem:** Developers frequently switch between Claude Code/Desktop, Gemini CLI/Antigravity, OpenAI Codex, Cursor, and Windsurf. Each tool requires its own proprietary MCP config, separate directories, and bespoke syntax. Replicating and maintaining these configs across Windows, macOS, and Linux leads to "configuration hell" and constant maintenance drift.
+   - **The Solution:**
+     - **Configure Once, Use Everywhere:** Maintain a single `mcp_servers.json` (or global `~/.config/mcp/mcp_servers.json`). Any AI agent with shell execution capabilities can immediately leverage all mounted tools via `mcp-cli` without touching IDE-specific JSON configs.
+     - **Uniform Behavior across Windows, macOS & Linux:** Consistent CLI parameters, identical stdout JSON structure, and universal `.env` substitution ensure your prompt instructions (e.g. in `.cursorrules`, `CLAUDE.md`, or system prompts) behave identically on any operating system and with any LLM model.
+
+* * *
+
+## Verified MCP Servers
+
+The following servers have been verified with `mcp-cli` across Windows, macOS, and Linux:
+
+| Server | Source | Transport | Verified Capabilities |
+| :--- | :--- | :---: | :--- |
+| **`filesystem`** | `@modelcontextprotocol/server-filesystem` | `stdio` | Official file system server for reading, writing, and directory traversal (14 tools). |
+| **`chrome-devtools`** | `chrome-devtools-mcp` | `stdio` | Official Chrome DevTools server for browser automation, screenshots, clicks, and network monitoring (32 tools). |
+| **`sequential-thinking`** | `@modelcontextprotocol/server-sequential-thinking` | `stdio` | Chain-of-Thought reasoning tool for dynamic problem decomposition. |
+| **`taiwan-stock-bashcat`** | `@bashcat/taiwan-stock-mcp` | `stdio` | Taiwan stock market real-time quotes, technical analysis, fundamentals, dividends, and investment scoring (16 tools). |
+| **`taiwan-gov-data`** | `tw-gov-data-mcp.funtuan.workers.dev` | Remote `SSE` | Taiwan Open Data semantic dataset search, verifying SSE event redirects and asynchronous RPC mapping (1 tool). |
+| **`twinkle-hub`** | `api.twinkleai.tw` | Remote `HTTP` | Taiwan legal, patent, and medical Open Data with Bearer Token auth and dynamic Meta-Tool architecture (3 core tools). |
+| **`deepwiki`** | `mcp.deepwiki.com` | Remote `SSE` | Remote Wiki knowledge base querying, content retrieval, and structure exploration (3 tools). |
+| **`taiwan-stock`** | Local Python script (`taiwan_stock_mcp.py`) | `stdio` | Verifies native Python MCP stdio transport. |
+
+* * *
 
 ## Quick Start
 
@@ -351,6 +403,27 @@ The CLI uses `mcp_servers.json`, compatible with Claude Desktop, Gemini or VS Co
 ```
 
 **Environment Variable Substitution:** Use `${VAR_NAME}` syntax anywhere in the config. Values are substituted at load time. By default, missing environment variables cause an error with a clear message. Set `MCP_STRICT_ENV=false` to use empty values instead (with a warning).
+
+### Automatic .env File Loading
+
+`mcp-cli` natively auto-loads `.env` files to keep API tokens and secrets out of version control:
+
+1. **Resolution Order:**
+   - Current working directory: `./.env`
+   - Config file directory: `<config_dir>/.env`
+   - User config directory: `~/.config/mcp/.env`
+2. **Usage Example:**
+   Define variables in `.env`:
+   ```env
+   TWINKLE_API_KEY=sk-xxxx
+   GITHUB_TOKEN=ghp_xxxx
+   ```
+   Reference them with `${VAR_NAME}` in `mcp_servers.json`:
+   ```json
+   "headers": {
+     "Authorization": "Bearer ${TWINKLE_API_KEY}"
+   }
+   ```
 
 ### Tool Filtering
 
@@ -688,18 +761,14 @@ Error [INVALID_JSON_ARGUMENTS]: Invalid JSON in tool arguments
 - **[Philipp Schmid](https://github.com/philschmid)** - Creator of the original, excellent [Bun/TypeScript mcp-cli](https://github.com/philschmid/mcp-cli) project.
 - **[Antigravity](https://github.com/google-deepmind)** - Re-engineered and fully rewrote the codebase into this highly optimized, zero-dependency pure Rust CLI.
 
+* * *
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
+* * *
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Install with npm
-
-```bash
-npm install -g @wenchiehlee1020/mcp-cli
-```
-
-The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag. For example, `@wenchiehlee1020/mcp-cli@0.1.8` downloads assets from `v0.1.8`.

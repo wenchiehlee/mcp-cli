@@ -347,6 +347,31 @@ fn get_default_config_paths() -> Vec<PathBuf> {
     paths
 }
 
+fn load_env_file_if_exists(path: &Path) {
+    if let Ok(content) = fs::read_to_string(path) {
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            if let Some((k, v)) = trimmed.split_once('=') {
+                let key = k.trim();
+                let mut val = v.trim();
+                if (val.starts_with('"') && val.ends_with('"'))
+                    || (val.starts_with('\'') && val.ends_with('\''))
+                {
+                    if val.len() >= 2 {
+                        val = &val[1..val.len() - 1];
+                    }
+                }
+                if env::var(key).is_err() {
+                    env::set_var(key, val);
+                }
+            }
+        }
+    }
+}
+
 pub fn load_config(
     explicit_path: Option<&str>,
 ) -> Result<McpServersConfig, crate::errors::CliError> {
@@ -378,6 +403,18 @@ pub fn load_config(
     }
 
     let actual_path = config_path.unwrap();
+
+    // Auto-load .env files if present (CWD, config dir, or ~/.config/mcp/.env)
+    load_env_file_if_exists(Path::new("./.env"));
+    if let Some(parent) = actual_path.parent() {
+        load_env_file_if_exists(&parent.join(".env"));
+    }
+    if let Ok(home) = env::var("HOME") {
+        load_env_file_if_exists(&Path::new(&home).join(".config/mcp/.env"));
+    } else if let Ok(profile) = env::var("USERPROFILE") {
+        load_env_file_if_exists(&Path::new(&profile).join(".config/mcp/.env"));
+    }
+
     let content = fs::read_to_string(&actual_path)
         .map_err(|e| config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string()))?;
 
@@ -628,5 +665,26 @@ mod tests {
         assert_eq!(result.unwrap_err().error_type, "CONFIG_INVALID_SERVER");
 
         let _ = std::fs::remove_file(file_path);
+    }
+
+    #[test]
+    fn test_load_env_file() {
+        use std::fs::File;
+        use std::io::Write;
+
+        let mut rng = rand::thread_rng();
+        let rand_val: u32 = rand::Rng::gen(&mut rng);
+        let env_path = std::env::temp_dir().join(format!("mcp_env_test_{}.env", rand_val));
+        let mut file = File::create(&env_path).unwrap();
+
+        let content = "TEST_DOTENV_KEY=dotenv_val_123\n# comment\nTEST_QUOTED_KEY=\"quoted_val\"\n";
+        file.write_all(content.as_bytes()).unwrap();
+
+        load_env_file_if_exists(&env_path);
+
+        assert_eq!(env::var("TEST_DOTENV_KEY").unwrap(), "dotenv_val_123");
+        assert_eq!(env::var("TEST_QUOTED_KEY").unwrap(), "quoted_val");
+
+        let _ = std::fs::remove_file(env_path);
     }
 }

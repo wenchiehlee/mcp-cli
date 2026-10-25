@@ -24,6 +24,58 @@
 
 * * *
 
+## 應用場景 (Use Cases)
+
+1. **🤖 AI Coding Agents 輕量工具調用 (Token-Efficient Agent Tooling)**
+   - 傳統方案直接將所有 MCP Server 的完整 JSON Schema 預先載入 AI 的 Context Window，常耗用數千至上萬 tokens。
+   - 透過 `mcp-cli`，AI Agent（如 Gemini CLI、Claude Code、Cursor 等）僅在需要時以單行指令（`mcp-cli info`、`mcp-cli call`）按需 (On-Demand) 查詢 Schema 與執行工具，大幅省下 Token 成本並保持對話脈絡精準。
+
+2. **⚙️ DevOps 與 Shell 自動化管線 (Shell & Pipeline Automation)**
+   - `call` 命令原生輸出標準 JSON，完美搭配 `jq`、xargs、curl 與 Shell 管道串接。
+   - 例如：定時透過台股 MCP 取得最新報價與投資評分、結合政府開放資料進行即時監控告警，或在 CI/CD 流程中自動執行 MCP 測試。
+
+3. **🌐 跨協定混合整合中心 (Unified Multi-Protocol Hub)**
+   - 單一 `mcp_servers.json` 設定檔即可混合管理：
+     - 本地進程（`stdio`，如 Node.js / Python / Docker 容器）。
+     - 遠端雲端端點（`Streamable HTTP` 與 `標準 MCP SSE (Server-Sent Events)`，支援自訂 Headers 與 Bearer Token 驗證）。
+   - 內建背景連線池 Daemon，自動保留熱連線，消除每次重新啟動進程的連線延遲。
+
+4. **🔒 隱私優先與跨平台團隊共用 (Privacy-First & Cross-Platform)**
+   - 原生支援 `.env` 檔案與 `${VAR_NAME}` 環境變數替換，團隊可安全共享伺服器設定，而私密 API Key 留在本地不外洩。
+   - 一套設定適用於 Linux (x64/arm64)、macOS (x64/arm64) 與 Windows (x64/x86/arm64)。
+
+5. **🛡️ 企業合規與安全治理：因應組織對 MCP 的使用限制 (Enterprise Governance & Restricted Environments)**
+   - **組織痛點**：許多企業、金融與受規管機構因資安考量（防範機密外洩、不可逆破壞性操作、黑箱背景連線），嚴格禁止或限制在開發者 IDE 中直接掛載全功能 MCP 伺服器。
+   - **解決之道**：
+     - **最小權限原則工具過濾 (Least-Privilege Tool Filtering)**：透過 `allowedTools` 與 `disabledTools` 進行強制白名單/黑名單控管（例如：僅開放 `read_*` / `search_*` 唯讀工具，全面停用 `delete_*` / `write_*` 等高風險動作）。
+     - **命令列透明度與審計日誌 (Transparent Shell Auditing)**：每一次工具呼叫都是透明可見的 CLI 指令，可直接納入終端操作記錄、CI/CD 稽核軌跡與企業 EDR/SIEM 安全監控，杜絕 IDE 插件的黑箱操作。
+     - **即用即關連線控制 (`MCP_NO_DAEMON=1`)**：符合高資安環境規範，禁止常駐後台進程與 Socket 殘留，呼叫結束立即中斷連線與釋放資源。
+
+6. **🔄 跨 AI 工具與跨平台統一樞紐 (Universal Single Source of Truth across Claude, Gemini & Codex)**
+   - **痛點**：不同 AI coding 工具（如 Claude Code/Desktop、Gemini CLI/Antigravity、OpenAI Codex、Cursor、Windsurf）各自維護獨立且繁瑣的 MCP 配置設定與路徑，在 Windows、macOS 與 Linux 之間切換時，往往因格式不合或設定分散而陷入「設定地獄 (Configuration Drift)」。
+   - **解決之道**：
+     - **一次設定，全體共用 (Single Source of Truth)**：只需維護單一 `mcp_servers.json`（或放置於 `~/.config/mcp/`），所有具備 Shell 執行能力的 AI Agent 即可透過標準 `mcp-cli` 指令直接調用，無需為每套 AI 工具重複配置。
+     - **跨三大作業系統完全一致**：統一的命令語法與 JSON 輸出格式，不論在 Windows (PowerShell/CMD)、macOS (zsh) 還是 Linux (bash)，AI 都能以相同的提示詞（Prompt）與邏輯無痛切換，大幅簡化跨平台與多 Agent 開發體驗。
+
+* * *
+
+## 已驗證相容的 MCP 伺服器 (Verified MCP Servers)
+
+以下伺服器已在 Windows、macOS 與 Linux 環境下，使用 `mcp-cli` 進行完整傳輸協定測試與工具功能驗證：
+
+| 伺服器名稱 | 實作來源 | 傳輸協定 | 驗證功能與說明 |
+| :--- | :--- | :---: | :--- |
+| **`filesystem`** | `@modelcontextprotocol/server-filesystem` | `stdio` | 官方檔案系統安全工具，支援目錄讀寫、檔案瀏覽與結構樹（14 個工具）。 |
+| **`chrome-devtools`** | `chrome-devtools-mcp` | `stdio` | 官方 Chrome 瀏覽器自動化除錯工具，支援截圖、點擊、效能追蹤與網路監聽（32 個工具）。 |
+| **`sequential-thinking`** | `@modelcontextprotocol/server-sequential-thinking` | `stdio` | 思維鏈 (CoT) 推理輔助，提供動態步驟拆解與問題分析。 |
+| **`taiwan-stock-bashcat`** | `@bashcat/taiwan-stock-mcp` | `stdio` | 台灣股市全方位分析，支援即時行情、五檔、技術指標、基本面、股利預測與投資評分（16 個工具）。 |
+| **`taiwan-gov-data`** | `tw-gov-data-mcp.funtuan.workers.dev` | 遠端 `SSE` | 台灣政府開放資料平台語意檢索，完整驗證 SSE 事件重導向與非同步請求關聯（1 個工具）。 |
+| **`twinkle-hub`** | `api.twinkleai.tw` | 遠端 `HTTP` | Twinkle AI 台灣開放資料/專利/判決/法規檢索，驗證 Bearer Token 驗證與動態 Meta-Tool 架構（3 個核心工具）。 |
+| **`deepwiki`** | `mcp.deepwiki.com` | 遠端 `SSE` | 遠端知識庫問答、內容閱讀與結構檢索（3 個工具）。 |
+| **`taiwan-stock`** | 本地 Python 腳本 (`taiwan_stock_mcp.py`) | `stdio` | 驗證原生 Python 實作之 MCP stdio 傳輸協定。 |
+
+* * *
+
 ## 快速開始
 
 ### 1. 安裝
@@ -359,6 +411,27 @@ CLI 使用 `mcp_servers.json`，格式相容 Claude Desktop、Gemini 與 VS Code
 ```
 
 **環境變數替換**：設定檔中任何位置都可使用 `${VAR_NAME}` 語法，CLI 載入時會替換成環境變數值。預設情況下，缺少環境變數會產生清楚的錯誤訊息。設定 `MCP_STRICT_ENV=false` 則會改用空值並顯示 warning。
+
+### .env 隱私與金鑰自動載入
+
+`mcp-cli` 原生支援自動載入 `.env` 檔案，確保您的私密 API 金鑰不需寫死在設定檔中，且不會誤推至 Git 儲存庫：
+
+1. **搜尋順序**：
+   - 目前工作目錄：`./.env`
+   - 設定檔所在目錄：`<config_dir>/.env`
+   - 全域設定目錄：`~/.config/mcp/.env`
+2. **使用範例**：
+   在 `.env` 中定義金鑰：
+   ```env
+   TWINKLE_API_KEY=sk-xxxx
+   GITHUB_TOKEN=ghp_xxxx
+   ```
+   在 `mcp_servers.json` 中以 `${VAR_NAME}` 引用：
+   ```json
+   "headers": {
+     "Authorization": "Bearer ${TWINKLE_API_KEY}"
+   }
+   ```
 
 ### Tool Filtering
 
