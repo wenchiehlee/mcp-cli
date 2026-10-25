@@ -93,7 +93,7 @@ or via npm:
 npm install -g @wenchiehlee1020/mcp-cli
 ```
 
-The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag (supports Linux, macOS, and Windows). For example, `@wenchiehlee1020/mcp-cli@0.1.8` downloads assets from `v0.1.8`.
+The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag (supports Linux, macOS, and Windows). For example, `@wenchiehlee1020/mcp-cli@0.1.9` downloads assets from `v0.1.9`.
 ```
 
 ### 2. Create a config file

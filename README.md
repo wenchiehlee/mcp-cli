@@ -97,7 +97,7 @@ cargo install --git https://github.com/wenchiehlee/mcp-cli
 npm install -g @wenchiehlee1020/mcp-cli
 ```
 
-npm package 是一層很薄的 wrapper，會從相同版本的 GitHub Release tag 下載原生 `mcp-cli` binary（支援 Linux、macOS 與 Windows）。例如 `@wenchiehlee1020/mcp-cli@0.1.8` 會下載 `v0.1.8` 的 assets。
+npm package 是一層很薄的 wrapper，會從相同版本的 GitHub Release tag 下載原生 `mcp-cli` binary（支援 Linux、macOS 與 Windows）。例如 `@wenchiehlee1020/mcp-cli@0.1.9` 會下載 `v0.1.9` 的 assets。
 
 ### 2. 建立設定檔
 
