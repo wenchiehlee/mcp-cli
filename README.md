@@ -72,7 +72,6 @@
 | **`taiwan-gov-data`** | `tw-gov-data-mcp.funtuan.workers.dev` | 遠端 `SSE` | 台灣政府開放資料平台語意檢索，完整驗證 SSE 事件重導向與非同步請求關聯（1 個工具）。 |
 | **`twinkle-hub`** | `api.twinkleai.tw` | 遠端 `HTTP` | Twinkle AI 台灣開放資料/專利/判決/法規檢索，驗證 Bearer Token 驗證與動態 Meta-Tool 架構（3 個核心工具）。 |
 | **`deepwiki`** | `mcp.deepwiki.com` | 遠端 `SSE` | 遠端知識庫問答、內容閱讀與結構檢索（3 個工具）。 |
-| **`taiwan-stock`** | 本地 Python 腳本 (`taiwan_stock_mcp.py`) | `stdio` | 驗證原生 Python 實作之 MCP stdio 傳輸協定。 |
 
 * * *
 
@@ -97,11 +96,11 @@ cargo install --git https://github.com/wenchiehlee/mcp-cli
 npm install -g @wenchiehlee1020/mcp-cli
 ```
 
-npm package 是一層很薄的 wrapper，會從相同版本的 GitHub Release tag 下載原生 `mcp-cli` binary（支援 Linux、macOS 與 Windows）。例如 `@wenchiehlee1020/mcp-cli@0.1.9` 會下載 `v0.1.9` 的 assets。
+npm package 是一層很薄的 wrapper，會從相同版本的 GitHub Release tag 下載原生 `mcp-cli` binary（支援 Linux、macOS 與 Windows）。例如 `@wenchiehlee1020/mcp-cli@0.1.10` 會下載 `v0.1.10` 的 assets。
 
 ### 2. 建立設定檔
 
-在目前目錄或 `~/.config/mcp/` 建立 `mcp_servers.json`：
+在目前目錄或 `~/.config/mcp/` 建立 `mcp_servers.json`（專案根目錄已提供範本 `mcp_servers.json.example` 與 `.env.example` 供快速複製）：
 
 ```json
 {

@@ -68,7 +68,6 @@ The following servers have been verified with `mcp-cli` across Windows, macOS, a
 | **`taiwan-gov-data`** | `tw-gov-data-mcp.funtuan.workers.dev` | Remote `SSE` | Taiwan Open Data semantic dataset search, verifying SSE event redirects and asynchronous RPC mapping (1 tool). |
 | **`twinkle-hub`** | `api.twinkleai.tw` | Remote `HTTP` | Taiwan legal, patent, and medical Open Data with Bearer Token auth and dynamic Meta-Tool architecture (3 core tools). |
 | **`deepwiki`** | `mcp.deepwiki.com` | Remote `SSE` | Remote Wiki knowledge base querying, content retrieval, and structure exploration (3 tools). |
-| **`taiwan-stock`** | Local Python script (`taiwan_stock_mcp.py`) | `stdio` | Verifies native Python MCP stdio transport. |
 
 * * *
 
@@ -93,12 +92,11 @@ or via npm:
 npm install -g @wenchiehlee1020/mcp-cli
 ```
 
-The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag (supports Linux, macOS, and Windows). For example, `@wenchiehlee1020/mcp-cli@0.1.9` downloads assets from `v0.1.9`.
-```
+The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag (supports Linux, macOS, and Windows). For example, `@wenchiehlee1020/mcp-cli@0.1.10` downloads assets from `v0.1.10`.
 
 ### 2. Create a config file
 
-Create `mcp_servers.json` in your current directory or `~/.config/mcp/`:
+Create `mcp_servers.json` in your current directory or `~/.config/mcp/` (templates `mcp_servers.json.example` and `.env.example` are available in the repository):
 
 ```json
 {

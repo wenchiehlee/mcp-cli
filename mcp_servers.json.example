@@ -1,0 +1,59 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "${NPX_CMD:-npx}",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ]
+    },
+    "sequential-thinking": {
+      "command": "${NPX_CMD:-npx}",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "${NPX_CMD:-npx}",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--autoConnect"
+      ]
+    },
+    "taiwan-stock-bashcat": {
+      "command": "${NPX_CMD:-npx}",
+      "args": [
+        "-y",
+        "@bashcat/taiwan-stock-mcp"
+      ]
+    },
+    "taiwan-gov-data": {
+      "url": "https://tw-gov-data-mcp.funtuan.workers.dev/sse"
+    },
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/mcp"
+    },
+    "twinkle-hub": {
+      "url": "https://api.twinkleai.tw/mcp",
+      "headers": {
+        "Authorization": "Bearer ${TWINKLE_API_KEY}"
+      }
+    },
+    "github-mcp-server": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server:0.29.0"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    }
+  }
+}
